@@ -17,7 +17,7 @@ def _sys_path_add(toadd=None):
         distdir = os.path.dirname(os.path.dirname(__file__))
         sys.path = [distdir] + [os.path.join(distdir, p) for p in toadd] + sys.path
 
-_sys_path_add(['src', 'src/hyperloop', 'src/hyperloop/geometry', 'src/hyperloop/test', 'src/hyperloop/cycle'])
+_sys_path_add(['NASA-TM', 'src', 'NASA-TM/code', 'NASA-TM/images', 'src/hyperloop', 'src/hyperloop/cycle', 'src/hyperloop/geometry', 'src/hyperloop/test'])
 
 # General configuration
 # ---------------------

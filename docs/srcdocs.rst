@@ -33,6 +33,19 @@ api.py
    :show-inheritance:
 
         
+.. index:: battery_plot.py
+
+.. _hyperloop.battery_plot.py:
+
+battery_plot.py
+---------------
+
+.. automodule:: hyperloop.battery_plot
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+        
 .. index:: compression_system.py
 
 .. _hyperloop.cycle.compression_system.py:
@@ -176,6 +189,19 @@ hyperloop_sim.py
    :show-inheritance:
 
         
+.. index:: mach_vs_area_plot.py
+
+.. _hyperloop.mach_vs_area_plot.py:
+
+mach_vs_area_plot.py
+--------------------
+
+.. automodule:: hyperloop.mach_vs_area_plot
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+        
 .. index:: mission.py
 
 .. _hyperloop.mission.py:
@@ -184,6 +210,32 @@ mission.py
 ----------
 
 .. automodule:: hyperloop.mission
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+        
+.. index:: run_cases.py
+
+.. _hyperloop.run_cases.py:
+
+run_cases.py
+------------
+
+.. automodule:: hyperloop.run_cases
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+        
+.. index:: speed_limit.py
+
+.. _hyperloop.speed_limit.py:
+
+speed_limit.py
+--------------
+
+.. automodule:: hyperloop.speed_limit
    :members:
    :undoc-members:
    :show-inheritance:
