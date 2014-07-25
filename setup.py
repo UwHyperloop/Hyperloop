@@ -95,7 +95,7 @@ kwargs = {'author': '',
               'hyperloop.geometry',
               'hyperloop.test'],
  'url': '',
- 'version': '0.5',
+ 'version': '0.6',
  'zip_safe': False}
 
 
