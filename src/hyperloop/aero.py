@@ -7,7 +7,7 @@ class Aero(Component):
     #Inputs
     coef_drag = Float(1, iotype="in", desc="capsule drag coefficient")
     area_capsule = Float(18000, iotype="in", units="cm**2", desc="capsule frontal area")
-    velocity_capsule = Float(600, iotype="in", units="m/s", desc="capsule frontal area")
+    velocity_capsule = Float(600, iotype="in", units="m/s", desc="capsule velocity")
     rho = Float(iotype="in", units="kg/m**3", desc="tube air density") 
     gross_thrust = Float(iotype="in", units="N", desc="nozzle gross thrust") 
     #Outputs
@@ -16,6 +16,6 @@ class Aero(Component):
 
     def execute(self): 
 
-        #Drag = 0.5*Cd*rho*Veloc*Area
-        self.drag = 0.5*self.coef_drag*self.rho*self.velocity_capsule*self.area_capsule 
+        #Drag = 0.5*Cd*rho*Veloc**2*Area
+        self.drag = 0.5*self.coef_drag*self.rho*self.velocity_capsule**2*self.area_capsule 
         self.net_force = self.gross_thrust - self.drag
