@@ -31,23 +31,23 @@ Package Metadata
     hyperloop.tube_limit_flow.TubeLimitFlow=hyperloop.tube_limit_flow:TubeLimitFlow
     hyperloop.cycle.compression_system.CompressionSystem=hyperloop.cycle.compression_system:CompressionSystem
     [openmdao.container]
-    hyperloop.geometry.air_bearing.AirBearing=hyperloop.geometry.air_bearing:AirBearing
     hyperloop.cycle.heat_exchanger.HeatBalance=hyperloop.cycle.heat_exchanger:HeatBalance
-    hyperloop.geometry.battery.Battery=hyperloop.geometry.battery:Battery
-    hyperloop.tube_wall_temp.TubeWallTemp=hyperloop.tube_wall_temp:TubeWallTemp
     hyperloop.test.test_tube_temp.TubeHeatBalance=hyperloop.test.test_tube_temp:TubeHeatBalance
-    hyperloop.tube_wall_temp.TubeHeatBalance=hyperloop.tube_wall_temp:TubeHeatBalance
-    hyperloop.aero.Aero=hyperloop.aero:Aero
-    hyperloop.mission.Mission=hyperloop.mission:Mission
-    hyperloop.hyperloop_sim.HyperloopPod=hyperloop.hyperloop_sim:HyperloopPod
-    hyperloop.geometry.inlet.InletGeom=hyperloop.geometry.inlet:InletGeom
-    hyperloop.geometry.passenger_capsule.PassengerCapsule=hyperloop.geometry.passenger_capsule:PassengerCapsule
-    hyperloop.geometry.pod.Pod=hyperloop.geometry.pod:Pod
     hyperloop.geometry.tube_structure.TubeStructural=hyperloop.geometry.tube_structure:TubeStructural
     hyperloop.cycle.heat_exchanger_sizing.HeatExchangerSizing=hyperloop.cycle.heat_exchanger_sizing:HeatExchangerSizing
+    hyperloop.aero.Aero=hyperloop.aero:Aero
+    hyperloop.geometry.air_bearing.AirBearing=hyperloop.geometry.air_bearing:AirBearing
+    hyperloop.tube_wall_temp.TubeHeatBalance=hyperloop.tube_wall_temp:TubeHeatBalance
+    hyperloop.tube_wall_temp.TubeWallTemp=hyperloop.tube_wall_temp:TubeWallTemp
+    hyperloop.mission.Mission=hyperloop.mission:Mission
+    hyperloop.geometry.inlet.InletGeom=hyperloop.geometry.inlet:InletGeom
+    hyperloop.cycle.compression_system.CompressionSystem=hyperloop.cycle.compression_system:CompressionSystem
+    hyperloop.geometry.battery.Battery=hyperloop.geometry.battery:Battery
+    hyperloop.hyperloop_sim.HyperloopPod=hyperloop.hyperloop_sim:HyperloopPod
     hyperloop.cycle.pump.Pump=hyperloop.cycle.pump:Pump
     hyperloop.tube_limit_flow.TubeLimitFlow=hyperloop.tube_limit_flow:TubeLimitFlow
-    hyperloop.cycle.compression_system.CompressionSystem=hyperloop.cycle.compression_system:CompressionSystem
+    hyperloop.geometry.passenger_capsule.PassengerCapsule=hyperloop.geometry.passenger_capsule:PassengerCapsule
+    hyperloop.geometry.pod.Pod=hyperloop.geometry.pod:Pod
 
 - **keywords:** openmdao
 
