@@ -1,3 +1,7 @@
+<img src="http://www.washington.edu/brand/files/2014/09/Signature_Left_Purple_Hex.png" height="30" />
+
+Updated version of the Hyperloop OpenMDAO plugin, written for OpenMDAO 1.0.
+
 # Hyperloop Model
 
 
