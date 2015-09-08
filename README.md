@@ -1,6 +1,6 @@
-#### University of Washington Hyperloop
+<img src="http://www.washington.edu/brand/files/2014/09/Signature_Left_Purple_Hex.png" height="30" />
 
-Upgraded version of the Hyperloop OpenMDAO plugin. Revised for OpenMDAO 1.0.
+Updated version of the Hyperloop OpenMDAO plugin, written for OpenMDAO 1.0.
 
 # Hyperloop Model
 
