@@ -1,21 +1,18 @@
-from openmdao.main.api import Component
-from openmdao.lib.datatypes.api import Float
+from openmdao.core.component import Component
 
-#put inside pod
-class Aero(Component): 
-    """Place holder for real aerodynamic calculations of the capsule""" 
-    #Inputs
-    coef_drag = Float(1, iotype="in", desc="capsule drag coefficient")
-    area_capsule = Float(18000, iotype="in", units="cm**2", desc="capsule frontal area")
-    velocity_capsule = Float(600, iotype="in", units="m/s", desc="capsule velocity")
-    rho = Float(iotype="in", units="kg/m**3", desc="tube air density") 
-    gross_thrust = Float(iotype="in", units="N", desc="nozzle gross thrust") 
-    #Outputs
-    net_force = Float(iotype="out", desc="Net force with drag considerations", units="N")
-    drag = Float(iotype="out", units="N", desc="Drag Force")
+class Aero(Component):
+    '''Placeholder for real aerodynamic calculations of the capsule''' 
+    def __init__(self):
+        self.add_param('coef_drag', 1.0, desc='capsule drag coefficient')
+        self.add_param('area_frontal', 18.0, desc='frontal area of capsule', units='m**2')
+        self.add_param('velocity_capsule', 600.0, desc='capsule velocity', units='m/s')
+        self.add_param('rho', 0.0, desc='tube air density', units='kg/m**3')
+        self.add_param('gross_thrust', 0.0, desc='nozzle gross thrust', units='N')
+        
+        self.add_output('net_force', 0.0, desc='net force with drag considerations', units='N')
+        self.add_output('drag', 0.0, desc='drag force', units='N')
 
-    def execute(self): 
-
-        #Drag = 0.5*Cd*rho*Veloc**2*Area
-        self.drag = 0.5*self.coef_drag*self.rho*self.velocity_capsule**2*self.area_capsule 
-        self.net_force = self.gross_thrust - self.drag
+    def solve_nonlinear(self, params, unknowns, resids):
+        # drag = Cd * rho * Velocity ** 2 * Area / 2.0
+        unknowns['drag'] = params['coef_drag'] * params['rho'] * params['velocity_capsule'] ** 2 * params['area_frontal'] / 2.0
+        unknowns['net_force'] = params['gross_thrust'] - unknowns['drag']

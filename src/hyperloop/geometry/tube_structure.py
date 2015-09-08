@@ -1,23 +1,14 @@
-from openmdao.main.api import Component
+from openmdao.core.component import Component
 
-from openmdao.lib.datatypes.api import Float
+THICKNESS_RATIO = 0.23 / 111.5 # ratio given on pg27 of original proposal
 
-THICKNESS_RATIO = .23/111.5 #uses ratio given on page 27 or original proposal
+class TubeStructural(Component):
+    '''Placeholder for real structural calculations to size the tube wall Thickness''' 
+    def __init__(self):
+        self.add_param('Ps', 99.0, desc='static pressure in the tube', units='Pa')
+        self.add_param('r_inner', 3.0, desc='inner radius of tube', units='m')
 
+        self.add_output('r_outer', 3.006, desc='outer radius of tube', units='m')
 
-class TubeStructural(Component): 
-    """Place holder for real structural calculations to size the tube wall Thickness""" 
-    #Inputs
-    Ps_tube = Float(99, iotype="in", desc="static pressure in the tube", units="Pa")
-    radius_inner = Float(300, iotype="in", units="cm", desc="inner radius of tube")
-    #Outputs
-    radius_outer = Float(300.6, iotype="out", units="cm", desc="outer radius of tube")
-
-    def execute(self): 
-
-        thickness = self.radius_inner*THICKNESS_RATIO
-        self.radius_outer = self.radius_inner + thickness
-
-
-
-
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['r_outer'] = params['r_inner'] * (1.0 + THICKNESS_RATIO)

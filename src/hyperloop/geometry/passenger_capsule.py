@@ -1,16 +1,15 @@
-from openmdao.main.api import Component
-from openmdao.lib.datatypes.api import Float, Int
+from openmdao.core.component import Component
 
-class PassengerCapsule(Component): 
-    """Place holder component for passenger capsule sizing and structural analysis.
-    Currently, just assume the baseline shape from the original proposal""" 
-    #Inputs
-    n_rows = Int(14, iotype="in", desc="number of rows of seats in the pod")
-    length_row = Float(150, iotype="in", units="cm", desc="length of each row of seats")
-    #Outputs
-    length_capsule = Float(iotype="out", units="cm", desc="overall length of the passenger capsule")
-    area_cross_section = Float(iotype="out", units="cm**2", desc="cross sectional area of the passenger capsule")
+class PassengerCapsule(Component):
+    '''Place holder component for passenger capsule sizing and structural analysis. Currently, just assume the baseline shape from the original proposal'''
+    def __init__(self):
+        self.add_param('n_rows', 14, desc='number of rows of seats')
+        self.add_param('row_len', 1.5, desc='length of each row of seats', units='m')
 
-    def execute(self):
-        self.length_capsule = 1.1*self.n_rows*self.length_row #10% fudge factor
-        self.area_cross_section = 14000 # page 15 of the original proposal
+        self.add_output('capsule_len', 0.0, desc='overall length of passenger capsule', units='m')
+        self.add_output('cross_section', 0.0, desc='cross sectional area of passenger capsule', units='m**2')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+        # TODO replace 10% "fudge factor" with more specific accomodations
+        unknowns['capsule_len'] = 1.1 * params['n_rows'] * params['row_len'] # 10% fudge factor
+        unknowns['cross_section'] = 1.4 # page 15 of the original proposal

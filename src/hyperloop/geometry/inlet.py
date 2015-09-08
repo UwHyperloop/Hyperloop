@@ -1,37 +1,35 @@
-from math import pi
+from math import pi, sqrt
 
-from openmdao.main.api import Component
-from openmdao.lib.datatypes.api import Float
+from openmdao.core.component import Component
 
+class InletGeom(Component):
+    '''Calculates the dimensions for the inlet and compressor entrance'''
+    def __init__(self):
+        self.add_param('wall_thickness', 0.05, desc='thickness of inlet wall', units='m')
+        self.add_param('area_in', 0.0, desc='flow area required at front of inlet', units='m**2')
+        self.add_param('area_out', 0.0, desc='flow area required at back of inlet', units='m**2')
+        self.add_param('hub_to_tip', 0.4, desc='hub to tip ratio for compressor')
+        self.add_param('cross_section', 1.4, desc='cross sectional area of passenger capsule', units='m**2')
 
-class InletGeom(Component): 
-    """Calculates the dimentions for the inlet and compressor entrance"""
-    #Inputs
-    inlet_wall_thickness = Float(5, iotype="in", units="cm", desc="thickness of the inlet wall")
-    area_in = Float(iotype="in", units="cm**2", desc="flow area required at the front of the inlet")
-    area_out = Float(iotype="in", units="cm**2", desc="flow area required at the back of the inlet")
-    hub_to_tip = Float(.4, iotype="in", desc="hub to tip ratio for the compressor")
-    area_passenger_capsule = Float(14000, iotype="in", units="cm**2", desc="cross sectional area of the passenger capsule")
-    #Outputs
-    radius_back_inner = Float(iotype="out", units="cm", desc="inner radius of back of the inlet")
-    radius_back_outer = Float(iotype="out", units="cm", desc="outer radius of back of the inlet")
-    area_bypass = Float(iotype="out", units="cm**2", desc="available area to move bypass air around the passenger capsule")
-    area_frontal = Float(iotype="out", units="cm**2", desc="total capsule frontal area")
+        self.add_output('r_back_inner', 0.0, desc='inner radius of back of inlet', units='m')
+        self.add_output('r_back_outer', 0.0, desc='outer radius of back of inlet', units='m')
+        self.add_output('area_bypass', 0.0, desc='available flow area round capsule', units='m**2')
+        self.add_output('area_frontal', 0.0, desc='total capsule frontal area', units='m**2')
 
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['r_back_inner'] = sqrt(params['area_out'] / pi / (1.0 - params['hub_to_tip'] ** 2))
+        unknowns['r_back_outer'] = unknowns['r_back_inner'] + params['wall_thickness']
+        unknowns['area_bypass'] = pi * (unknowns['r_back_inner']) ** 2 - params['cross_section']
+        unknowns['area_frontal'] = pi * (unknowns['r_back_outer']) ** 2
 
-    def execute(self): 
-        self.radius_back_inner = (self.area_out/pi/(1-self.hub_to_tip**2))**.5
-        self.radius_back_outer = self.radius_back_inner+self.inlet_wall_thickness
-        self.area_bypass = pi*(self.radius_back_inner)**2 - self.area_passenger_capsule
-        self.area_frontal = pi*(self.radius_back_outer)**2
+if __name__ == '__main__':
+    from openmdao.core.problem import Problem
+    from openmdao.core.group import Group
 
-if __name__ == "__main__": 
+    p = Problem(root=Group())
+    p.root.add('comp', InletGeom())
+    p.setup()
+    p.run()
 
-    from openmdao.main.api import set_as_top
-
-    f = set_as_top(BypassDuct())
-    f.execute()
-
-    print "tube_radius (cm): %f"%f.tube_radius
-
-
+    for var_name, units in (('r_back_inner', 'm'), ('r_back_outer', 'm'), ('area_bypass', 'm**2'), ('area_frontal', 'm**2')):
+        print '%s (%s): %f' % (var_name, units, p.root.comp.unknowns[var_name])

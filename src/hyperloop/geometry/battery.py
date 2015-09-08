@@ -1,41 +1,34 @@
-from openmdao.main.api import Component
-from openmdao.lib.datatypes.api import Float
+from openmdao.core.component import Component
 
+class Battery(Component):
+    def __init__(self):
+        self.add_param('time_mission', 2100.0, desc='travel time', units='s')
+        self.add_param('cross_section', 1.3, desc='available cross section area for battery pack', units='m**2')
+        self.add_param('energy', 0.0, desc='total energy storage requirements', units='kW*h')
+        # from http://en.wikipedia.org/wiki/Lithium-ion_battery
+        # e ranges from 0.100 to 0.265 kW*h/kg; U ranges from 250 to 739 kW*h/m**3
+        self.add_param('e', 0.182, desc='specific energy of Li-ion battery', units='kW*h/kg')
+        self.add_param('U', 494.0, desc='energy density of Li-ion battery', units='kW*h/m**3')
 
-#NOTE: This is a VERY oversimplified calculation! But it gets us a ballpark figure
-class Battery(Component): 
+        self.add_output('mass', 0.0, desc='total mass of batteries', units='kg')
+        self.add_output('volume', 0.0, desc='total volume of batteries', units='m**3')
+        self.add_output('len', 0.0, desc='required length of battery pack', units='m')
 
-    #Inputs
-    time_mission = Float(2100, iotype="in", units="s", desc="pod travel time")
-    area_cross_section = Float(1.3, iotype="in", units="m**2", desc="available cross section for battery pack")
-    energy = Float(iotype="in", units="kW*h", desc="total energy storage requirements")
-    #Outputs
-    mass = Float(iotype="out", units="kg", desc="total mass of the batteries")
-    volume = Float(iotype="out", units="m**3", desc="total volume of the batteries")
-    length = Float(iotype="out", units="m", desc="required length of battery pack")
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['mass'] = params['energy'] / params['e']
+        unknowns['volume'] = params['energy'] / params['U']
+        unknowns['len'] = unknowns['volume'] / params['cross_section']
 
-    def execute(self): 
+if __name__ == '__main__':
+    from openmdao.core.problem import Problem
+    from openmdao.core.group import Group
 
-        #gathered from http://en.wikipedia.org/wiki/Lithium-ion_battery
-        specific_energy = .182 #.100-.265 kW*h/kg
-        energy_density = 494 #250-739 kW*h/m**3
+    p = Problem(root=Group())
+    p.root.add('comp', Battery())
+    p.setup()
+    p.run()
 
-        self.mass = self.energy/specific_energy
-        self.volume = self.energy/energy_density
-        self.length = self.volume/self.area_cross_section
-        
-
-if __name__ == "__main__": 
-
-    from openmdao.main.api import set_as_top
-
-    comp = set_as_top(Battery())
-    comp.run()
-
-
-    print "mass (Kg): %f"%comp.mass
-    print "energy (kW*hr): %f"%comp.energy
-    print "volume (m**3): %f"%comp.volume
-    print "length (m): %f"%comp.length
-
-
+    print 'mass (Kg): %f' % p.root.comp.unknowns['mass']
+    print 'energy (kW*hr): %f' % p.root.comp.unknowns['energy']
+    print 'volume (m**3): %f' % p.root.comp.unknowns['volume']
+    print 'length (m): %f' % p.root.comp.unknowns['len']
