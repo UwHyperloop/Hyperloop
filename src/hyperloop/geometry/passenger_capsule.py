@@ -3,6 +3,7 @@ from openmdao.core.component import Component
 class PassengerCapsule(Component):
     '''Place holder component for passenger capsule sizing and structural analysis. Currently, just assume the baseline shape from the original proposal'''
     def __init__(self):
+        super(PassengerCapsule, self).__init__()
         self.add_param('n_rows', 14, desc='number of rows of seats')
         self.add_param('row_len', 1.5, desc='length of each row of seats', units='m')
 

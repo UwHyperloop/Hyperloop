@@ -4,6 +4,7 @@ from openmdao.core.component import Component
 
 class AirBearing(Component):
     def __init__(self):
+        super(AirBearing, self).__init__()
         self.add_param('tube_radius', 4.0, desc='radius of tube', units='m')
         self.add_param('capsule_mass', 15000.0, desc='mass of capsule', units='kg')
         self.add_param('P_in', 9.4, desc='air injection pressure for bearings', units='kPa')

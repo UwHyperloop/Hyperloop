@@ -2,6 +2,7 @@ from openmdao.core.component import Component
 
 class Battery(Component):
     def __init__(self):
+        super(Battery, self).__init__()
         self.add_param('time_mission', 2100.0, desc='travel time', units='s')
         self.add_param('cross_section', 1.3, desc='available cross section area for battery pack', units='m**2')
         self.add_param('energy', 0.0, desc='total energy storage requirements', units='kW*h')

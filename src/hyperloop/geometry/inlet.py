@@ -5,6 +5,7 @@ from openmdao.core.component import Component
 class InletGeom(Component):
     '''Calculates the dimensions for the inlet and compressor entrance'''
     def __init__(self):
+        super(InletGeom, self).__init__()
         self.add_param('wall_thickness', 0.05, desc='thickness of inlet wall', units='m')
         self.add_param('area_in', 0.0, desc='flow area required at front of inlet', units='m**2')
         self.add_param('area_out', 0.0, desc='flow area required at back of inlet', units='m**2')

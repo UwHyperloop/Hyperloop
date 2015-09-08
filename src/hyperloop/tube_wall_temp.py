@@ -1,22 +1,21 @@
-"""
-    tubeModel.py - 
-        Determines the steady state temperature of the hyperloop tube.
-        Calculates Q released/absorbed by hyperloop tube due to:
-        Internal Convection, Tube Conduction, Ambient Natural Convection, Solar Flux In, Radiation Out
-        
-    -original calculations from Jeff Berton, ported and extended by Jeff Chin
+'''
+tubeModel.py - 
+    Determines the steady state temperature of the hyperloop tube.
+    Calculates Q released/absorbed by hyperloop tube due to:
+    Internal Convection, Tube Conduction, Ambient Natural Convection, Solar Flux In, Radiation Out
+    
+-original calculations from Jeff Berton, ported and extended by Jeff Chin
 
-    Compatible with OpenMDAO v0.8.1
-"""
+Compatible with OpenMDAO v1.0.5
+'''
+
 from math import log, pi, sqrt, e
 
-from openmdao.main.api import Assembly, Component
-from openmdao.lib.drivers.api import BroydenSolver 
-from openmdao.lib.datatypes.api import Float, Bool
-from openmdao.main.api import convert_units as cu
+from openmdao.core.component import Component
+from openmdao.core.group import Group
+from openmdao.units.units import convert_units as cu
 
-from pycycle.api import FlowStationVar
-
+from pycycle import flowstation
 
 class TubeWallTemp(Component):
     """ Calculates Q released/absorbed by the hyperloop tube """

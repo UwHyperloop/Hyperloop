@@ -3,6 +3,7 @@ from openmdao.core.component import Component
 class Aero(Component):
     '''Placeholder for real aerodynamic calculations of the capsule''' 
     def __init__(self):
+        super(Aero, self).__init__()
         self.add_param('coef_drag', 1.0, desc='capsule drag coefficient')
         self.add_param('area_frontal', 18.0, desc='frontal area of capsule', units='m**2')
         self.add_param('velocity_capsule', 600.0, desc='capsule velocity', units='m/s')
