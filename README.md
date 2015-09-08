@@ -1,3 +1,7 @@
+#### University of Washington Hyperloop
+
+Upgraded version of the Hyperloop OpenMDAO plugin. Revised for OpenMDAO 1.0.
+
 # Hyperloop Model
 
 
