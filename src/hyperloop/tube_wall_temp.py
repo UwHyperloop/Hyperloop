@@ -11,163 +11,134 @@ Compatible with OpenMDAO v1.0.5
 
 from math import log, pi, sqrt, e
 
-from openmdao.core.component import Component
 from openmdao.core.group import Group
 from openmdao.units.units import convert_units as cu
 
 from pycycle import flowstation
+from pycycle.cycle_component import CycleComponent
 
-class TubeWallTemp(Component):
-    """ Calculates Q released/absorbed by the hyperloop tube """
-    #--Inputs--
-    #Hyperloop Parameters/Design Variables
-    diameter_outer_tube = Float(2.23, units = 'm', iotype='in', desc='tube outer diameter') #7.3ft
-    length_tube = Float(482803, units = 'm', iotype='in', desc='Length of entire Hyperloop') #300 miles, 1584000ft
-    num_pods = Float(34, units = 'K', iotype='in', desc='Number of Pods in the Tube at a given time') #
-    temp_boundary = Float(322.0, units = 'K', iotype='in', desc='Average Temperature of the tube wall') #
-    temp_outside_ambient = Float(305.6, units = 'K', iotype='in', desc='Average Temperature of the outside air') #
-    nozzle_air = FlowStationVar(iotype="in", desc="air exiting the pod nozzle", copy=None)
-    bearing_air = FlowStationVar(iotype="in", desc="air exiting the air bearings", copy=None)
-    #constants
-    solar_insolation = Float(1000., iotype="in", units = 'W/m**2', desc='solar irradiation at sea level on a clear day') #
-    nn_incidence_factor = Float(0.7, iotype="in", desc='Non-normal incidence factor') #
-    surface_reflectance = Float(0.5, desc='Solar Reflectance Index') #
-    q_per_area_solar = Float(350., units = 'W/m**2', desc='Solar Heat Rate Absorbed per Area') #
-    q_total_solar = Float(375989751., iotype="in", units = 'W', desc='Solar Heat Absorbed by Tube') #
-    emissivity_tube = Float(0.5, iotype="in", units = 'W', desc='Emmissivity of the Tube') #
-    sb_constant = Float(0.00000005670373, iotype="in", units = 'W/((m**2)*(K**4))', desc='Stefan-Boltzmann Constant') #
+class TubeWallTemp(CycleComponent):
+    '''Calculates Q released/absorbed by the hyperloop tube'''
+    def __init__(self):
+        super(TubeWallTemp, self).__init__()
+        self._add_flowstation('flow_nozzle')
+        self._add_flowstation('flow_bearings')
 
-    #--Outputs--
-    area_rad = Float(337486.1, units = 'm**2', iotype='out', desc='Tube Radiating Area') #    
-    #Required for Natural Convection Calcs
-    GrDelTL3 = Float(1946216.7, units = '1/((ft**3)*F)', iotype='out', desc='Heat Radiated to the outside') #
-    Pr = Float(0.707, iotype='out', desc='Prandtl') #
-    Gr = Float(12730351223., iotype='out', desc='Grashof #') #
-    Ra = Float(8996312085., iotype='out', desc='Rayleigh #') #
-    Nu = Float(232.4543713, iotype='out', desc='Nusselt #') #
-    k = Float(0.02655, units = 'W/(m*K)', iotype='out', desc='Thermal conductivity') #
-    h = Float(0.845464094, units = 'W/((m**2)*K)', iotype='out', desc='Heat Radiated to the outside') #
-    area_convection = Float(3374876.115, units = 'W', iotype='out', desc='Convection Area') #
-    #Natural Convection
-    q_per_area_nat_conv = Float(7.9, units = 'W/(m**2)', iotype='out', desc='Heat Radiated per Area to the outside') #
-    total_q_nat_conv = Float(286900419., units = 'W', iotype='out', desc='Total Heat Radiated to the outside via Natural Convection') #
-    #Exhausted from Pods
-    heat_rate_pod = Float(519763, units = 'W', iotype='out', desc='Heating Due to a Single Pods') #
-    total_heat_rate_pods = Float(17671942., units = 'W', iotype='out', desc='Heating Due to a All Pods') #
-    #Radiated Out
-    q_rad_per_area = Float(31.6, units = 'W/(m**2)', iotype='out', desc='Heat Radiated to the outside') #
-    q_rad_tot = Float(106761066.5, units = 'W', iotype='out', desc='Heat Radiated to the outside') #
-    #Radiated In
-    viewing_angle = Float(1074256, units = 'm**2', iotype='out', desc='Effective Area hit by Sun') #
-    #Total Heating
-    q_total_out = Float(286900419., units = 'W', iotype='out', desc='Total Heat Released via Radiation and Natural Convection') #
-    q_total_in = Float(286900419., units = 'W', iotype='out', desc='Total Heat Absorbed/Added via Pods and Solar Absorption') #
-    #Residual (for solver)
-    ss_temp_residual = Float(units = 'K', iotype='out', desc='Residual of T_released - T_absorbed')
-  
-    def execute(self):
-        """Calculate Various Paramters"""
+        self.add_param('r_tube_outer', 3.006, desc='outer radius of tube', units='m')
+        self.add_param('tube_len', 482803.0, desc='length of one trip', units='m')
+        self.add_param('n_pods', 34, desc='number of Pods in the tube at a given time')
+        self.add_param('temp_boundary', 322.0, desc='average temperature of tube wall', units='degK')
+        self.add_param('temp_ambient', 305.6, desc='average temperature of outside air', units='degK')
+
+        self.add_param('insolation', 1000.0, desc='solar irradiation at sea level on a clear day', units='W/m**2')
+        self.add_param('nn_incidence_factor', 0.7, desc='non-normal incidence factor')
+        self.add_param('reflectance', 0.5, desc='solar reflectance index')
+        self.add_param('emissivity', 0.5, desc='emissivity of the tube', units='W')
+        self.add_param('sb_const', 0.00000005670373, desc='Stefan-Boltzmann constant', units='W/m**2/degK**4')
         
-        bearing_q = cu(self.bearing_air.W,'lbm/s','kg/s') * cu(self.bearing_air.Cp,'Btu/(lbm*degR)','J/(kg*K)') * (cu(self.bearing_air.Tt,'degR','degK') - self.temp_boundary)
-        nozzle_q = cu(self.nozzle_air.W,'lbm/s','kg/s') * cu(self.nozzle_air.Cp,'Btu/(lbm*degR)','J/(kg*K)') * (cu(self.nozzle_air.Tt,'degR','degK') - self.temp_boundary)
-        #Q = mdot * cp * deltaT 
-        self.heat_rate_pod = nozzle_q +bearing_q 
-        #Total Q = Q * (number of pods)
-        self.total_heat_rate_pods = self.heat_rate_pod*self.num_pods
+        self.add_output('radiating_area', 337486.1, desc='tube radiating area', units='m**2')
+        self.add_output('GrDelTL3', 1946216.7, desc='heat radiated to the outside', units='1/ft**3/F')
+        self.add_output('Pr', 0.707, desc='Prandtl')
+        self.add_output('Gr', 12730351223.0, desc='Grashof #')
+        self.add_output('Ra', 8996312085.0, desc='Rayleigh #')
+        self.add_output('Nu', 232.4543713, desc='Nusselt #')
+        self.add_output('k', 0.02655, desc='thermal conductivity', units='W/m/degK')
+        self.add_output('h', 0.845464094, desc='heat radiated to the outside', units='W/m**2/degK')
+        self.add_output('convection_area', 3374876.115, desc='convection area', units='W')
+        self.add_output('Qradiated_nat_convection_per_area', 286900419.0, desc='heat radiated per area to the outside via natural convection', units='W/m**2/degK')
+        self.add_output('Qradiated_nat_convection_tot', 286900419.0, desc='total heat radiated to the outside via natural convection', units='W')
+        self.add_output('Qsolar_per_area', 350.0, desc='solar heat rate absorbed per area', units='W/m**2')
+        self.add_output('Qsolar_tot', 2902611.636, desc='total solar heat rate absorbed', units='W/m**2')
+        self.add_output('heat_rate_per_pod', 519763.0, desc='heating due to a single pod', units='W')
+        self.add_output('heat_rate_tot', 17671942.0, desc='heating rate due to all pods', units='W')
+        self.add_output('Qradiated_per_area', 31.6, desc='heat radiated to the outside per area', units='W/m**2')
+        self.add_output('Qradiated_tot', 106761066.5, desc='total heat radiated to the outside', units='W/m**2')
+        self.add_output('area_viewing', 1074256.0, desc='effective area hit by sun', units='m**2')
+        self.add_output('Qout_tot', 286900419.0, desc='total heat released via radiation', units='W')
+        self.add_output('Qin_tot', 286900419.0, desc='total heat absorbed/added via pods and solar absorption', units='W')
+        self.add_output('Q_resid', 0.0, desc='residual of Qin_tot and Qout_tot', units='W')
 
-        #Determine thermal resistance of outside via Natural Convection or forced convection
-        if(self.temp_outside_ambient < 400):
-            self.GrDelTL3 = 41780000000000000000*((self.temp_outside_ambient)**(-4.639)) #SI units (https://mdao.grc.nasa.gov/publications/Berton-Thesis.pdf pg51)
+    def solve_nonlinear(self, params, unknowns, resids):
+        self._clear_unknowns('flow_nozzle', unknowns)
+        self._clear_unknowns('flow_bearings', unknowns)
+        self._solve_flow_vars('flow_nozzle', params, unknowns)
+        self._solve_flow_vars('flow_bearings', params, unknowns)
+        # Q = mdot * cp * deltaT
+        Qbearing = cu(unknowns['flow_bearings:out:W'],'lbm/s', 'kg/s') * cu(unknowns['flow_bearings:out:Cp'], 'Btu/lbm/degR', 'J/kg/K') * (cu(unknowns['flow_bearings:out:Tt'], 'degR', 'degK') - params['temp_boundary'])
+        Qnozzle = cu(unknowns['flow_nozzle:out:W'], 'lbm/s', 'kg/s') * cu(unknowns['flow_nozzle:out:Cp'], 'Btu/lbm/degR', 'J/kg/K') * (cu(unknowns['flow_nozzle:out:Tt'], 'degR', 'degK') - params['temp_boundary'])
+        unknowns['heat_rate_per_pod'] = Qnozzle + Qbearing
+        unknowns['heat_rate_tot'] = unknowns['heat_rate_per_pod'] * params['n_pods']
+        # Determine thermal resistance of outside via natural or forced convection
+        # Prandtl # (Pr) = viscous diffusion rate / thermal diffusion rate = Cp * dyanamic viscosity / thermal conductivity
+        # Pr << 1: thermal diffusivity dominates; Pr >> 1: momentum diffusivity dominates
+        # SI units (https://mdao.grc.nasa.gov/publications/Berton-Thesis.pdf pg51)
+        if params['temp_ambient'] < 400.0:
+            unknowns['GrDelTL3'] = 4.178e19 * params['temp_ambient'] ** -4.639
+            unknowns['Pr'] = 1.23 * params['temp_ambient'] ** -0.09685
+            unknowns['k'] = 0.0001423 * params['temp_ambient'] ** 0.9138
         else:
-            self.GrDelTL3 = 4985000000000000000*((self.temp_outside_ambient)**(-4.284)) #SI units (https://mdao.grc.nasa.gov/publications/Berton-Thesis.pdf pg51)
-        
-        #Prandtl Number
-        #Pr = viscous diffusion rate/ thermal diffusion rate = Cp * dyanamic viscosity / thermal conductivity
-        #Pr << 1 means thermal diffusivity dominates
-        #Pr >> 1 means momentum diffusivity dominates
-        if (self.temp_outside_ambient < 400):
-            self.Pr = 1.23*(self.temp_outside_ambient**(-0.09685)) #SI units (https://mdao.grc.nasa.gov/publications/Berton-Thesis.pdf pg51)
+            unknowns['GrDelTL3'] = 4.985e18 * params['temp_ambient'] ** -4.284
+            unknowns['Pr'] = 0.59 * params['temp_ambient'] ** 0.0239
+            unknowns['k'] = 0.0002494 * params['temp_ambient'] ** 0.8152
+        # Grashof # (Gr) < 10^8: laminar; Gr > 10^9: turbulent
+        unknowns['Gr'] = unknowns['GrDelTL3'] * (params['temp_boundary'] - params['temp_ambient']) * (2.0 * params['r_tube_outer']) ** 3
+        # Rayleigh #: buoyancy driven flow (natural convection)
+        unknowns['Ra'] = unknowns['Pr'] * unknowns['Gr']
+        if unknowns['Ra'] <= 1e12: # valid in specific flow regime
+            # Nusselt # (Nu) = convective heat transfer / conductive heat transfer
+            unknowns['Nu'] = (0.6 + 0.387 * unknowns['Ra'] ** (1.0 / 6.0) / (1.0 + (0.559 / unknowns['Pr']) ** (9.0 / 16.0)) ** (8.0 / 27.0)) ** 2 # 3rd Ed. of Introduction to Heat Transfer by Incropera and DeWitt, equations (9.33) and (9.34) on page 465
         else:
-            self.Pr = 0.59*(self.temp_outside_ambient**(0.0239))
-        #Grashof Number
-        #Relationship between buoyancy and viscosity
-        #Laminar = Gr < 10^8
-        #Turbulent = Gr > 10^9
-        self.Gr = self.GrDelTL3*(self.temp_boundary-self.temp_outside_ambient)*(self.diameter_outer_tube**3)
-        #Rayleigh Number 
-        #Buoyancy driven flow (natural convection)
-        self.Ra = self.Pr * self.Gr
-        #Nusselt Number
-        #Nu = convecive heat transfer / conductive heat transfer
-        if (self.Ra<=10**12): #valid in specific flow regime
-            self.Nu = (0.6 + 0.387*self.Ra**(1./6.)/(1 + (0.559/self.Pr)**(9./16.))**(8./27.))**2 #3rd Ed. of Introduction to Heat Transfer by Incropera and DeWitt, equations (9.33) and (9.34) on page 465
-        if(self.temp_outside_ambient < 400):
-            self.k = 0.0001423*(self.temp_outside_ambient**(0.9138)) #SI units (https://mdao.grc.nasa.gov/publications/Berton-Thesis.pdf pg51)
-        else:
-            self.k = 0.0002494*(self.temp_outside_ambient**(0.8152))
-        #h = k*Nu/Characteristic Length
-        self.h = (self.k * self.Nu)/ self.diameter_outer_tube
-        #Convection Area = Surface Area
-        self.area_convection = pi * self.length_tube * self.diameter_outer_tube 
-        #Determine heat radiated per square meter (Q)
-        self.q_per_area_nat_conv = self.h*(self.temp_boundary-self.temp_outside_ambient)
-        #Determine total heat radiated over entire tube (Qtotal)
-        self.total_q_nat_conv = self.q_per_area_nat_conv * self.area_convection
-        #Determine heat incoming via Sun radiation (Incidence Flux)
-        #Sun hits an effective rectangular cross section
-        self.area_viewing = self.length_tube* self.diameter_outer_tube
-        self.q_per_area_solar = (1-self.surface_reflectance)* self.nn_incidence_factor * self.solar_insolation
-        self.q_total_solar = self.q_per_area_solar * self.area_viewing
-        #Determine heat released via radiation
-        #Radiative area = surface area
-        self.area_rad = self.area_convection
-        #P/A = SB*emmisitivity*(T^4 - To^4)
-        self.q_rad_per_area = self.sb_constant*self.emissivity_tube*((self.temp_boundary**4) - (self.temp_outside_ambient**4))
-        #P = A * (P/A)
-        self.q_rad_tot = self.area_rad * self.q_rad_per_area
-        #------------
-        #Sum Up
-        self.q_total_out = self.q_rad_tot + self.total_q_nat_conv
-        self.q_total_in = self.q_total_solar + self.total_heat_rate_pods
-        
-        self.ss_temp_residual = (self.q_total_out - self.q_total_in)/1e6
+            raise Exception('Rayleigh number outside of acceptable range.')
+        unknowns['h'] = unknowns['k'] * unknowns['Nu'] / (2.0 * params['r_tube_outer']) # h = k * Nu / characteristic length
+        unknowns['convection_area'] = pi * params['tube_len'] * 2.0 * params['r_tube_outer']
+        unknowns['Qradiated_nat_convection_per_area'] = unknowns['h'] * (params['temp_boundary'] - params['temp_ambient'])
+        unknowns['Qradiated_nat_convection_tot'] = unknowns['Qradiated_nat_convection_per_area'] * unknowns['convection_area']
+        unknowns['area_viewing'] = params['tube_len'] * 2.0 * params['r_tube_outer'] # sun hits an effective rectangular cross section
+        unknowns['Qsolar_per_area'] = (1.0 - params['reflectance']) * params['nn_incidence_factor'] * params['insolation']
+        unknowns['Qsolar_tot'] = unknowns['Qsolar_per_area'] * unknowns['area_viewing']
+        unknowns['radiating_area'] = unknowns['convection_area']
+        unknowns['Qradiated_per_area'] = params['sb_const'] * params['emissivity'] * (params['temp_boundary'] ** 4 - params['temp_ambient'] ** 4) # P / A = SB * emmisitivity * (T ** 4 - To ** 4)
+        unknowns['Qradiated_tot'] = unknowns['radiating_area'] * unknowns['Qradiated_per_area']
+        unknowns['Qout_tot'] = unknowns['Qradiated_tot'] + unknowns['Qradiated_nat_convection_per_area']
+        unknowns['Qin_tot'] = unknowns['Qsolar_tot'] + unknowns['heat_rate_tot']
+        unknowns['Q_resid'] = abs(unknowns['Qout_tot'] - unknowns['Qin_tot'])
 
-#run stand-alone component
-if __name__ == "__main__":
+if __name__ == '__main__':
+    from openmdao.core.group import Group
+    from openmdao.core.problem import Problem
+    from openmdao.drivers.scipy_optimizer import ScipyOptimizer
+    from openmdao.components.param_comp import ParamComp
+    from openmdao.components.constraint import ConstraintComp
 
-    from openmdao.main.api import set_as_top
+    g = Group()
+    p = Problem(root=g, driver=ScipyOptimizer())
+    p.driver.options['optimizer'] = 'COBYLA'
 
+    g.add('temp_boundary', ParamComp('T', 340.0))
+    g.add('tube_wall', TubeWallTemp())
+    g.connect('temp_boundary.T', 'tube_wall.temp_boundary')
+    g.add('con', ConstraintComp('temp_boundary > 305.7', out='out'))
+    g.connect('temp_boundary.T', 'con.temp_boundary')
+    
+    p.driver.add_param('temp_boundary.T', low=0.0, high=10000.0)
+    p.driver.add_objective('tube_wall.Q_resid')
+    p.driver.add_constraint('con.out')
 
-    class TubeHeatBalance(Assembly):
+    p.setup()
 
-        def configure(self):
+    g.tube_wall.params['flow_nozzle:in:Tt'] = 1710.0
+    g.tube_wall.params['flow_nozzle:in:Pt'] = 0.304434211
+    g.tube_wall.params['flow_nozzle:in:W'] = 1.08
+    g.tube_wall.params['flow_bearings:in:W'] = 0.0
+    g.tube_wall.params['r_tube_outer'] = 2.22504 / 2.0
+    g.tube_wall.params['tube_len'] = 482803.0
+    g.tube_wall.params['n_pods'] = 34
+    g.tube_wall.params['temp_ambient'] = 305.6
 
-            tm = self.add('tm', TubeWallTemp())
-            #tm.bearing_air.setTotalTP()
-            driver = self.add('driver',BroydenSolver())
-            driver.add_parameter('tm.temp_boundary',low=0.,high=10000.)
-            driver.add_constraint('tm.ss_temp_residual=0')
+    p.run()
 
-            driver.workflow.add(['tm'])
-
-    test = TubeHeatBalance()
-    set_as_top(test)
-
-    #set input values
-    test.tm.nozzle_air.setTotalTP(1710, 0.304434211)
-    test.tm.nozzle_air.W = 1.08
-    test.tm.bearing_air.W = 0.
-    test.tm.diameter_outer_tube = 2.22504#, units = 'm', iotype='in', desc='Tube out diameter') #7.3ft
-    test.tm.length_tube = 482803.#, units = 'm', iotype='in', desc='Length of entire Hyperloop') #300 miles, 1584000ft
-    test.tm.num_pods = 34.#, units = 'K', iotype='in', desc='Number of Pods in the Tube at a given time') #
-    test.tm.temp_boundary = 340#, units = 'K', iotype='in', desc='Average Temperature of the tube') #
-    test.tm.temp_outside_ambient = 305.6#, units = 'K', iotype='in', desc='Average Temperature of the outside air') #
-
-    test.run()
-
-    print "-----Completed Tube Heat Flux Model Calculations---"
-    print ""
-    print "CompressQ-{} SolarQ-{} RadQ-{} ConvecQ-{}".format(test.tm.total_heat_rate_pods, test.tm.q_total_solar, test.tm.q_rad_tot, test.tm.total_q_nat_conv )
-    print "Equilibrium Wall Temperature: {} K or {} F".format(test.tm.temp_boundary, cu(test.tm.temp_boundary,'degK','degF'))
-    print "Ambient Temperature:          {} K or {} F".format(test.tm.temp_outside_ambient, cu(test.tm.temp_outside_ambient,'degK','degF'))
-    print "Q Out = {} W  ==>  Q In = {} W ==> Error: {}%".format(test.tm.q_total_out,test.tm.q_total_in,((test.tm.q_total_out-test.tm.q_total_in)/test.tm.q_total_out)*100)
+    print '\nCompleted tube heat flux model calculations...\n'
+    print 'Compress Q:             %g\nSolar Q:                %g\nRadiation Q:            %g\nConvection Q:           %g' % (g.tube_wall.unknowns['heat_rate_tot'], g.tube_wall.unknowns['Qsolar_tot'], g.tube_wall.unknowns['Qradiated_tot'], g.tube_wall.unknowns['Qradiated_nat_convection_tot'])
+    print 'Equilibrium wall temp.: %g K or %g F' % (g.unknowns['temp_boundary.T'], cu(g.unknowns['temp_boundary.T'], 'degK', 'degF'))
+    print 'Ambient temp.:          %g K or %g F' % (g.tube_wall.params['temp_ambient'], cu(g.tube_wall.params['temp_ambient'], 'degK', 'degF'))
+    print 'Q out:                  %g W\nQ in:                   %g W\nError:                  %3.9f%%\n' % (g.tube_wall.unknowns['Qout_tot'], g.tube_wall.unknowns['Qin_tot'], (g.tube_wall.unknowns['Qout_tot'] - g.tube_wall.unknowns['Qin_tot']) / g.tube_wall.unknowns['Qout_tot'] * 100.0)
