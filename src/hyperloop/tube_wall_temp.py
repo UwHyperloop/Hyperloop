@@ -11,10 +11,8 @@ Compatible with OpenMDAO v1.0.5
 
 from math import log, pi, sqrt, e
 
-from openmdao.core.group import Group
 from openmdao.units.units import convert_units as cu
 
-from pycycle import flowstation
 from pycycle.cycle_component import CycleComponent
 
 class TubeWallTemp(CycleComponent):
