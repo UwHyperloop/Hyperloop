@@ -4,7 +4,7 @@ tubeModel.py -
     Calculates Q released/absorbed by hyperloop tube due to:
     Internal Convection, Tube Conduction, Ambient Natural Convection, Solar Flux In, Radiation Out
     
--original calculations from Jeff Berton, ported and extended by Jeff Chin
+-original calculations from Jeff Berton, ported and extended by Jeff Chin. Additional changes made by Brent Schroeter
 
 Compatible with OpenMDAO v1.0.5
 '''
