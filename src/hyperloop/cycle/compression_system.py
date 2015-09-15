@@ -1,41 +1,44 @@
-from openmdao.main.api import Assembly, Component
-from openmdao.lib.drivers.api import DOEdriver
-from openmdao.lib.doegenerators.api import FullFactorial
-from openmdao.lib.casehandlers.api import DumpCaseRecorder
-from openmdao.lib.datatypes.api import Float
+from openmdao.core.component import Component
+from opnemdao.core.group import Group
 
-from pycycle.api import (FlowStartStatic, SplitterW, Inlet, Compressor, Duct,
-    Nozzle, CycleComponent, HeatExchanger, FlowStationVar, FlowStation)
+from pycycle.components import FlowStartStatic, SplitterW, Inlet, Compressor, Duct, Nozzle, HeatExchanger, CycleComponent
+from pycycle import flowstation
 
+class Performance(CycleComponent):
+    def __init__(self):
+        super(Performance, self).__init__()
+        self.add_param('C1_pwr', 0.0, units='hp')
+        self.add_param('C2_pwr', 0.0, units='hp')
+        self.add_param('Fg', 0.0, desc='force of gravity', units='lbf')
+        self.add_param('Fram', 0.0, units='lbf')
+        self.add_param('Ps_bearing_target', 0.0, units='psi')
+        self.add_param('Ps_bearing', 0.0, units='psi')
+        
+        self.add_output('pwr', 0.0, desc='total power required', units='hp')
+        self.add_output('Fnet', 0.0, desc='net force', units='lbf')
+        self.add_state('Ps_bearing_resid', 0.0, units='psi')
 
-class Performance(CycleComponent): 
+    def solve_nonlinear(self, params, unknowns, resids):
+        unknowns['pwr'] = params['C1_pwr'] + params['C2_pwr']
+        unknowns['Fnet'] = params['Fg'] + params['Fram']
+        resids['Ps_bearing_resid'] = params['Ps_bearing'] - params['Ps_bearing_target']
 
-    C1_pwr = Float(0, iotype='in', units='hp')
-    C2_pwr = Float(0, iotype='in', units='hp')
-
-    Fg = Float(0, iotype='in', units='lbf')
-    F_ram = Float(0, iotype='in', units='lbf')
-
-    Ps_bearing_target = Float(iotype="in", units="psi")
-    Ps_bearing = Float(iotype="in", units="psi")
-
-    pwr = Float(0, iotype='out', units='hp')
-    F_net = Float(0, iotype='out', units='lbf')
-
-    Ps_bearing_residual = Float(iotype="out", desc="residual related to the proper value for bearing air static pressure", units="psi")
-
-    def execute(self): 
-
-        self.pwr = self.C1_pwr + self.C2_pwr
-        self.F_net = self.Fg - self.F_ram
-        self.Ps_bearing_residual = .001*(self.Ps_bearing - self.Ps_bearing_target)
-
-
-class CompressionSystem(Assembly): 
+class CompressionSystem(Group):
+    def __init__(self):
+        super(CompressionSystem, self).__init__()
+        self.add('tube', FlowStartStatic())
+        self.add('inlet', Inlet())
+        self.add('comp1', Compressor())
+        self.add('duct1', Duct())
+        self.add('split', SplitterW())
+        self.add('nozzle', Nozzle())
+        self.add('comp2', Compressor())
+        self.add('duct2', Duct())
+        self.add('performance', Performance())
 
     #I/O Variables accessible on the boundary of the assembly 
     #NOTE: Some unit conversions to metric also happen here
-    Mach_pod_max = Float(1.0, iotype="in", desc="Maximum travel Mach of the pod")
+#    Mach_pod_max = Float(1.0, iotype="in", desc="Maximum travel Mach of the pod")
     W_in = Float(.69, iotype="in", desc="mass flow rate into the compression system", units="kg/s")
     W_bearing_in = Float(.2, iotype="in", desc="required mass flow rate for the bearing system", units="kg/s")
     Ps_tube = Float(99, iotype="in", desc="static pressure in the tube", units="Pa") 
