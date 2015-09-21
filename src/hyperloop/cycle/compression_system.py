@@ -1,16 +1,21 @@
 from openmdao.core.component import Component
 from opnemdao.core.group import Group
+from openmdao.units.units import convert_units as cu
 
-from pycycle.components import FlowStartStatic, SplitterW, Inlet, Compressor, Duct, Nozzle, HeatExchanger, CycleComponent
-from pycycle import flowstation
+from pycycle.constants import AIR_MIX
+from pycycle.components.flow_start import FlowStart
+from pycycle.components.inlet import Inlet
+from pycycle.components.compressor import Compressor
+from pycycle.components.splitter import Splitter
+from pycycle.components.nozzle import Nozzle
 
-class Performance(CycleComponent):
+class Performance(Component):
     def __init__(self):
         super(Performance, self).__init__()
         self.add_param('C1_pwr', 0.0, units='hp')
         self.add_param('C2_pwr', 0.0, units='hp')
-        self.add_param('Fg', 0.0, desc='force of gravity', units='lbf')
-        self.add_param('Fram', 0.0, units='lbf')
+        self.add_param('Fg', 0.0, desc='gross thrust', units='lbf')
+        self.add_param('F_ram', 0.0, units='lbf')
         self.add_param('Ps_bearing_target', 0.0, units='psi')
         self.add_param('Ps_bearing', 0.0, units='psi')
         
@@ -19,52 +24,78 @@ class Performance(CycleComponent):
         self.add_state('Ps_bearing_resid', 0.0, units='psi')
 
     def solve_nonlinear(self, params, unknowns, resids):
+        self.apply_nonlinear(params, unknowns, resids)
+
+    def apply_nonlinear(self, params, unknowns, resids):
         unknowns['pwr'] = params['C1_pwr'] + params['C2_pwr']
         unknowns['Fnet'] = params['Fg'] + params['Fram']
         resids['Ps_bearing_resid'] = params['Ps_bearing'] - params['Ps_bearing_target']
 
 class CompressionSystem(Group):
+    @staticmethod
+    def connect_flow(group, Fl_O_name, Fl_I_name):
+        for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n', 'n_moles'):
+            for prefix in ('tot', 'stat'):
+                group.connect('%s:%s:%s' % (Fl_O_name, prefix, v_name), '%s:%s:%s' % (Fl_I_name, prefix v_name))
+        for stat in ('V', 'Vsonic', 'MN', 'area', 'W', 'Wc'):
+            group.connect('%s:stat:%s' % (Fl_O_name, stat), '%s:stat:%s' % (Fl_I_name, stat))
+        group.connect('%s:FAR' % Fl_O_name, '%s:FAR' % Fl_I_name)
+
     def __init__(self):
         super(CompressionSystem, self).__init__()
-        self.add('tube', FlowStartStatic())
+        self.add('tube', FlowStart())
         self.add('inlet', Inlet())
         self.add('comp1', Compressor())
-        self.add('duct1', Duct())
-        self.add('split', SplitterW())
-        self.add('nozzle', Nozzle())
+        self.add('split', Splitter())
+        self.add('nozzle', Nozzle(elements=AIR_MIX))
         self.add('comp2', Compressor())
-        self.add('duct2', Duct())
-        self.add('performance', Performance())
+        self.add('perf', Performance())
 
-    #I/O Variables accessible on the boundary of the assembly 
-    #NOTE: Some unit conversions to metric also happen here
-#    Mach_pod_max = Float(1.0, iotype="in", desc="Maximum travel Mach of the pod")
-    W_in = Float(.69, iotype="in", desc="mass flow rate into the compression system", units="kg/s")
-    W_bearing_in = Float(.2, iotype="in", desc="required mass flow rate for the bearing system", units="kg/s")
-    Ps_tube = Float(99, iotype="in", desc="static pressure in the tube", units="Pa") 
-    Ts_tube = Float(292.1, iotype="in", desc="static temperature in the tube", units="degK")
-    Mach_c1_in = Float(.6, iotype="in", desc="Mach number at entrance to the first compressor at design conditions")
-    c1_PR_des = Float(12.47, iotype="in", desc="pressure ratio of first compressor at design conditions")
-    Ps_bearing = Float(11000, iotype="in", desc="Static pressure of the bearing air", units="Pa")
+        conn_fl = CompressionSystem.connect_flow
+        conn_fl(self, 'tube', 'inlet.Fl_I')
+        conn_fl(self, 'inlet.Fl_O', 'comp1.Fl_I')
+        conn_fl(self, 'comp1.Fl_O', 'split.Fl_I')
+        conn_fl(self, 'split.Fl_O1', 'comp2.Fl_I')
+        conn_fl(self, 'split.Fl_O2', 'nozzle.Fl_I')
+
+        self.connect('comp1.power', 'perf.C1_pwr')
+        self.connect('comp2.power', 'perf.C2_pwr')
+        self.connect('comp2.Fl_O:stat:P', 'perf.Ps_bearing')
+        self.connect('nozzle.Fg', 'perf.Fg')
+        self.connect('inlet.F_ram', 'perf.F_ram')
 
 
-    nozzle_Fl_O = FlowStationVar(iotype="out", desc="flow exiting the nozzle", copy=None)
-    bearing_Fl_O = FlowStationVar(iotype="out", desc="flow exiting the bearings", copy=None)
-    rho_air = Float(iotype="out", desc="Density (needed for aero calcs in another component)")
+if __name__ == "__main__":
+    from openmdao.core.problem import Problem
 
-    speed_max = Float(iotype="out", desc="maximum velocity of the pod", units="m/s")
-    area_c1_in = Float(iotype="out", desc="flow area required for the input to the first compressor", units="cm**2")
-    area_c1_out = Float(iotype="out", desc="flow area required for the output to the first compressor", units="cm**2")
-    area_inlet_in = Float(iotype="out", desc="flow area required for the first compressor", units="cm**2")
-    nozzle_flow_area = Float(iotype="out", desc="flow area required for the nozzle exit", units="cm**2")
-    pwr_req = Float(iotype="out", desc="pwr required to drivr the compression system", units="kW")
-    F_net = Float(iotype="out", desc="Thrust generated by the nozzle", units="N")
+    p = Problem()
+    g = p.root = CompressionSystem()
 
-    #state variables
-    c2_PR_des = Float(5, iotype="in", desc="pressure ratio of second compressor at design conditions")
+    p.setup()
 
-    #residuals
-    Ps_bearing_residual = Float(iotype="out", desc="residual related to the proper value for bearing air static pressure", units="Pa")
+    g.params['tube.Fl_O:stat:W'] = cu(1.521, 'lbm/s', 'kg/s')
+    g.params['tube.Fl_O:stat:P'] = cu(0.01436, 'lbf', 'Pa')
+    g.params['tube.Fl_O:stat:T'] = cu(525.6, 'degR', 'degK')
+
+    g.params['inlet.ram_recovery'] = 1.0
+
+    g.params['comp1.PR_design'] = 12.47
+    g.params['comp1.eff_design'] = 0.8
+
+    g.params['split.W1'] = 0.44
+# g.params['split.MN_exit1_design'] = 1.0
+# g.params['split.MN_exit2_design'] = 1.0
+
+    g.params['nozzle.dPqP'] = 0.0
+#    g.params['Ps_exhaust'] = 
+
+
+
+
+    p.run()
+
+
+
 
 
 
