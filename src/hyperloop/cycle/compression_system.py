@@ -6,9 +6,10 @@ from pycycle.constants import AIR_MIX
 from pycycle.components.flow_start import FlowStart
 from pycycle.components.inlet import Inlet
 from pycycle.components.compressor import Compressor
-from pycycle.components.splitter import SplitterW
 from pycycle.components.nozzle import Nozzle
+from pycycle.flowstation import FlowIn
 
+from splitter import SplitterW
 from transmogrifier import Transmogrifier
 
 class Performance(Component):
