@@ -6,12 +6,15 @@ from pycycle.constants import AIR_MIX
 from pycycle.components.flow_start import FlowStart
 from pycycle.components.inlet import Inlet
 from pycycle.components.compressor import Compressor
-from pycycle.components.splitter import Splitter
+from pycycle.components.splitter import SplitterW
 from pycycle.components.nozzle import Nozzle
+
+from transmogrifier import Transmogrifier
 
 class Performance(Component):
     def __init__(self):
         super(Performance, self).__init__()
+        self.add_param('inlet_area', 0.0, desc='cross section of flow entering inlet', units='m**2')
         self.add_param('C1_pwr', 0.0, units='hp')
         self.add_param('C2_pwr', 0.0, units='hp')
         self.add_param('Fg', 0.0, desc='gross thrust', units='lbf')
@@ -32,6 +35,8 @@ class Performance(Component):
         resids['Ps_bearing_resid'] = params['Ps_bearing'] - params['Ps_bearing_target']
 
 class CompressionSystem(Group):
+    # Required data: Fl_I:stat:V, inlet_area, Fl_I:stat:rho, 
+
     @staticmethod
     def connect_flow(group, Fl_O_name, Fl_I_name):
         for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n', 'n_moles'):
@@ -43,19 +48,34 @@ class CompressionSystem(Group):
 
     def __init__(self):
         super(CompressionSystem, self).__init__()
-        self.add('tube', FlowStart())
+
+        flow_in = FlowIn('Fl_I', self.num_prod)
+        self.add('flow_in', flow_in, promotes=flow_in.flow_in_vars)
+        self.add('W_start', ExecComp('W = V * rho * area'))
+        self.add('start', FlowStart())
         self.add('inlet', Inlet())
+        self.add('diffuser', Transmogrifier())
         self.add('comp1', Compressor())
-        self.add('split', Splitter())
+        self.add('comp1_funnel', Transmogrifier(mode='MN')) # calculates statics based on exit Mach
+        self.add('split', SplitterW(mode='MN'))
         self.add('nozzle', Nozzle(elements=AIR_MIX))
         self.add('comp2', Compressor())
+        self.add('comp2_funnel', Transmogrifier()) # calculates statics based on exit area
         self.add('perf', Performance())
 
+        self.connect('Fl_I:stat:V', 'W_start.V')
+        self.connect('Fl_I:stat:rho', 'W_start.rho')
+        self.connect('inlet_area', 'W_start.area')
+        self.connect('W_start.W', 'start.W')
+
         conn_fl = CompressionSystem.connect_flow
-        conn_fl(self, 'tube', 'inlet.Fl_I')
-        conn_fl(self, 'inlet.Fl_O', 'comp1.Fl_I')
-        conn_fl(self, 'comp1.Fl_O', 'split.Fl_I')
+        conn_fl(self, 'start', 'inlet.Fl_I')
+        conn_fl(self, 'inlet.Fl_O', 'diffuser.Fl_I')
+        conn_fl(self, 'diffuser.Fl_O', 'comp1.Fl_I')
+        conn_fl(self, 'comp1.Fl_O', 'comp1_funnel.Fl_I')
+        conn_fl(self, 'comp1_funnel.Fl_O', 'split.Fl_I')
         conn_fl(self, 'split.Fl_O1', 'comp2.Fl_I')
+        conn_fl(self, 'comp2.Fl_O', 'comp2_funnel.Fl_I')
         conn_fl(self, 'split.Fl_O2', 'nozzle.Fl_I')
 
         self.connect('comp1.power', 'perf.C1_pwr')
@@ -73,87 +93,39 @@ if __name__ == "__main__":
 
     p.setup()
 
-    g.params['tube.Fl_O:stat:W'] = cu(1.521, 'lbm/s', 'kg/s')
-    g.params['tube.Fl_O:stat:P'] = cu(0.01436, 'lbf', 'Pa')
-    g.params['tube.Fl_O:stat:T'] = cu(525.6, 'degR', 'degK')
+    g.params['Fl_I:stat:P'] = cu(0.01436, 'lbf', 'Pa')
+    g.params['Fl_I:stat:T'] = cu(525.6, 'degR', 'degK')
 
     g.params['inlet.ram_recovery'] = 1.0
+
+    g.params['diffuser.area_out_target'] = g.params['inlet_area']
 
     g.params['comp1.PR_design'] = 12.47
     g.params['comp1.eff_design'] = 0.8
 
-    g.params['split.W1'] = 0.44
-# g.params['split.MN_exit1_design'] = 1.0
-# g.params['split.MN_exit2_design'] = 1.0
+    g.params['comp1_funnel.MN_out_target'] = 0.6
+
+    g.params['split.W1'] = 0.44 # weight flow requirement of the bearing system goes here
+    g.params['split.MN_out1_target'] = 0.6
+    g.params['split.MN_out2_target'] = 1.0
 
     g.params['nozzle.dPqP'] = 0.0
 #    g.params['Ps_exhaust'] = 
 
+    g.params['comp2.PR_design'] = 5.0
+    g.params['comp2.eff_design'] = 0.8
 
-
+    g.params['comp2_funnel.MN_out_target'] = 0.6
 
     p.run()
 
 
 
 
+# TODO still working..............
 
 
-    def configure(self):
-
-        #Add Compressor Cycle Components
-        tube = self.add('tube', FlowStartStatic())
-        #tube.W = 1.521
-        tube.Ps = 0.01436
-        tube.Ts = 525.6
-
-        inlet = self.add('inlet', Inlet())
-        inlet.ram_recovery = 1.0
-        #inlet.MNexit_des = .6
-
-        comp1 = self.add('comp1', Compressor())
-        comp1.PR_des = 12.47
-        comp1.MNexit_des = .4
-        comp1.eff_des = .80
-
-        duct1 = self.add('duct1', Duct())
-        duct1.Q_dot = 0# no heat exchangers
-        duct1.dPqP = .1 #no losses
-
-        split = self.add('split', SplitterW())
-        split.W1_des = .44
-        split.MNexit1_des = 1.0
-        split.MNexit2_des = 1.0
-
-        nozzle = self.add('nozzle', Nozzle())
-        nozzle.dPqP = 0 #no losses
-        nozzle.Fl_ref = FlowStation()
-
-        comp2 = self.add('comp2', Compressor())
-        comp2.PR_des = 5.0
-        comp2.MNexit_des = .4
-        comp2.eff_des = .80
-
-        duct2 = self.add('duct2', Duct()) #to bearings
-        duct2.Q_dot = 0 #no heat exchangers
-        duct2.dPqP = .1 #no losses
-
-        perf = self.add('perf', Performance())
-
-        #Inter Component Connections
-        self.connect('tube.Fl_O', 'inlet.Fl_I')
-        self.connect('inlet.Fl_O','comp1.Fl_I')
-        self.connect('comp1.Fl_O', 'duct1.Fl_I')
-        self.connect('duct1.Fl_O', 'split.Fl_I')
-        self.connect('split.Fl_O2', 'nozzle.Fl_I')
-        self.connect('tube.Fl_O', 'nozzle.Fl_ref')
-        self.connect('split.Fl_O1', 'comp2.Fl_I')
-        self.connect('comp2.Fl_O','duct2.Fl_I')
-        self.connect('comp1.pwr','perf.C1_pwr')
-        self.connect('comp2.pwr','perf.C2_pwr')
         self.connect('duct2.Fl_O.Ps', 'perf.Ps_bearing')
-        self.connect('nozzle.Fg', 'perf.Fg')
-        self.connect('inlet.F_ram', 'perf.F_ram')
 
         #Input variable pass_throughs to the assembly boundary
         #Compress -> Tube
@@ -185,14 +157,6 @@ if __name__ == "__main__":
         self.connect('perf.pwr', 'pwr_req') 
         self.connect('perf.Ps_bearing_residual', 'Ps_bearing_residual')
 
-        #driver setup
-        design = self.driver
-        comp_list = ['tube','inlet','comp1',
-            'duct1', 'split', 'nozzle', 'comp2', 'duct2', 'perf']
-
-        design.workflow.add(comp_list)
-        for comp_name in comp_list: #need to put everything in design mode
-            design.add_event('%s.design'%comp_name)
 
 
 if __name__ == "__main__": 
