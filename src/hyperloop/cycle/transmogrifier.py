@@ -1,7 +1,7 @@
 from openmdao.core.group import Group
 from openmdao.core.component import Component
 
-from scipy.optimize.newton import brentq
+from scipy.optimize import brentq
 
 from pycycle.constants import AIR_MIX
 from pycycle.thermo_static import SetStaticMN
