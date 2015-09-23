@@ -28,7 +28,7 @@ class TransmogrifierCalc(Component):
         elif mode == 'MN':
             self.add_param('MN_out_target', 1.0, desc='Mach at exit')
 
-    def solve_nonlinear(self, params, unknowns, unknowns):
+    def solve_nonlinear(self, params, unknowns, resids):
         self.apply_nonlinear(params, unknowns, resids)
 
     def apply_nonlinear(self, params, unknowns, resids):
@@ -83,7 +83,7 @@ class Transmogrifier(Group):
             self.connect('MN_out_target', 'set_stat.MN_target')
 
         for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n', 'n_moles'):
-            self.add('passthru_tot:%s' % v_name, PassThrough('Fl_I:tot:%s', 'Fl_O:tot:%s', 0.0), promotes=['*'])
+            self.add('passthru_tot:%s' % v_name, PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O:tot:%s' % v_name, 0.0), promotes=['*'])
 
         self.add('passthru_FAR', PassThrough('Fl_I:FAR', 'Fl_O:FAR', 0.0), promotes=['*'])
 

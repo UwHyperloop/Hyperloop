@@ -1,7 +1,9 @@
 from openmdao.core.component import Component
-from opnemdao.core.group import Group
+from openmdao.core.group import Group
 from openmdao.units.units import convert_units as cu
+from openmdao.components.exec_comp import ExecComp
 
+from pycycle import species_data
 from pycycle.constants import AIR_MIX
 from pycycle.components.flow_start import FlowStart
 from pycycle.components.inlet import Inlet
@@ -42,7 +44,7 @@ class CompressionSystem(Group):
     def connect_flow(group, Fl_O_name, Fl_I_name, connect_stat=True):
         for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n', 'n_moles'):
             for prefix in (('tot', 'stat') if connect_stat else ('tot',)):
-                group.connect('%s:%s:%s' % (Fl_O_name, prefix, v_name), '%s:%s:%s' % (Fl_I_name, prefix v_name))
+                group.connect('%s:%s:%s' % (Fl_O_name, prefix, v_name), '%s:%s:%s' % (Fl_I_name, prefix, v_name))
         if connect_stat:
             for stat in ('V', 'Vsonic', 'MN', 'area', 'W', 'Wc'):
                 group.connect('%s:stat:%s' % (Fl_O_name, stat), '%s:stat:%s' % (Fl_I_name, stat))
@@ -52,6 +54,13 @@ class CompressionSystem(Group):
 
     def __init__(self):
         super(CompressionSystem, self).__init__()
+
+        self.thermo_data = species_data.janaf
+        self.elements = AIR_MIX
+
+        gas_thermo = species_data.Thermo(self.thermo_data, init_reacts=self.elements)
+        self.gas_prods = gas_thermo.products
+        self.num_prod = len(self.gas_prods)
 
         flow_in = FlowIn('Fl_I', self.num_prod)
         self.add('flow_in', flow_in, promotes=flow_in.flow_in_vars)
@@ -108,7 +117,7 @@ if __name__ == "__main__":
 
     g.params['inlet.ram_recovery'] = 1.0
 
-    g.params['diffuser.area_out_target'] = g.params['inlet_area']
+    g.params['diffuser.area_out_target'] = g.params['inlet_area'] # no diffuser if equal to inlet_area
 
     g.params['comp1.PR_design'] = 12.47
     g.params['comp1.eff_design'] = 0.8

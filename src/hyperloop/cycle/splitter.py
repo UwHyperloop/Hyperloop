@@ -1,7 +1,7 @@
 from openmdao.core.group import Group
 from openmdao.core.component import Component
 
-from scipy.optimize.newton import newton
+from scipy.optimize import newton
 
 from pycycle.constants import g_c, AIR_FUEL_MIX, AIR_MIX
 from pycycle.set_total import SetTotal
@@ -54,7 +54,7 @@ class SplitterW(Group):
     """A Group that models a splitter with known weight flows"""
 
     def __init__(self, thermo_data=species_data.janaf, elements=AIR_MIX, mode="MN"):
-        super(Splitter, self).__init__()
+        super(SplitterW, self).__init__()
 
         if mode == "MN" or mode == "area":
             pass
@@ -89,7 +89,7 @@ class SplitterW(Group):
         # total vars
         for v_name in ('h','T','P','S','rho','gamma','Cp','Cv','n','n_moles'):
             for n in range(2):
-                self.add('%s_passthru_%d' % (v_name, n), PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O%d:tot:%s' % v_name, 0.0), promotes=['*'])
+                self.add('%s_passthru_%d' % (v_name, n), PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O%d:tot:%s' % (n, v_name), 0.0), promotes=['*'])
 
         self.add('split_calc', SplitterWCalc(mode), promotes=['*'])
 
