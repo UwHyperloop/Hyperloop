@@ -39,7 +39,7 @@ class TransmogrifierCalc(Component):
 
 
 class Transmogrifier(Group):
-    """Boringly calculates statics for a component with changing area (e.g. a diffuser or converging nozzle)"""
+    """Calculates statics for a component with changing area (e.g. a diffuser or converging nozzle); can be used alone or in sequence with a compressor, splitter, etc. to model area change across the component"""
 
     def __init__(self, thermo_data=species_data.janaf, elements=AIR_MIX, mode="area"):
         super(Transmogrifier, self).__init__()
@@ -93,6 +93,9 @@ class Transmogrifier(Group):
                 params['set_stat.MN_target'] = MN_exit
                 super(Transmogrifier, self).solve_nonlinear(params, unknowns, resids)
                 return resids['calc.area_resid']
+
+            if params['Fl_I:stat:MN'] < 1.0 and params['shock']:
+                print 'WARNING: Transmogrifier expected shock but inlet flow is subsonic'
 
             if params['Fl_I:stat:MN'] < 1.0 or params['shock']:
                 brentq(f, 1e-4, 1.0)
