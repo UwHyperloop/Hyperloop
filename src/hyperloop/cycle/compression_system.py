@@ -39,12 +39,15 @@ class CompressionSystem(Group):
     # Required data: Fl_I:stat:V, inlet_area, Fl_I:stat:rho, 
 
     @staticmethod
-    def connect_flow(group, Fl_O_name, Fl_I_name):
+    def connect_flow(group, Fl_O_name, Fl_I_name, connect_stat=True):
         for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n', 'n_moles'):
-            for prefix in ('tot', 'stat'):
+            for prefix in (('tot', 'stat') if connect_stat else ('tot',)):
                 group.connect('%s:%s:%s' % (Fl_O_name, prefix, v_name), '%s:%s:%s' % (Fl_I_name, prefix v_name))
-        for stat in ('V', 'Vsonic', 'MN', 'area', 'W', 'Wc'):
-            group.connect('%s:stat:%s' % (Fl_O_name, stat), '%s:stat:%s' % (Fl_I_name, stat))
+        if connect_stat:
+            for stat in ('V', 'Vsonic', 'MN', 'area', 'W', 'Wc'):
+                group.connect('%s:stat:%s' % (Fl_O_name, stat), '%s:stat:%s' % (Fl_I_name, stat))
+        else:
+            group.connect('%s:stat:W' % Fl_O_name, '%s:stat:W' % Fl_I_name)
         group.connect('%s:FAR' % Fl_O_name, '%s:FAR' % Fl_I_name)
 
     def __init__(self):
@@ -52,7 +55,7 @@ class CompressionSystem(Group):
 
         flow_in = FlowIn('Fl_I', self.num_prod)
         self.add('flow_in', flow_in, promotes=flow_in.flow_in_vars)
-        self.add('W_start', ExecComp('W = V * rho * area'))
+        self.add('W_start', ExecComp('W = P / R / T * area * MN * math.sqrt(gamma * R * T)'), promotes=['R'])
         self.add('start', FlowStart())
         self.add('inlet', Inlet())
         self.add('diffuser', Transmogrifier())
@@ -62,10 +65,12 @@ class CompressionSystem(Group):
         self.add('nozzle', Nozzle(elements=AIR_MIX))
         self.add('comp2', Compressor())
         self.add('comp2_funnel', Transmogrifier()) # calculates statics based on exit area
-        self.add('perf', Performance())
+        self.add('perf', Performance(), promotes=['inlet_area'])
 
-        self.connect('Fl_I:stat:V', 'W_start.V')
-        self.connect('Fl_I:stat:rho', 'W_start.rho')
+        self.connect('Fl_I:stat:MN', 'W_start.MN')
+        self.connect('Fl_I:stat:gamma', 'W_start.gamma')
+        self.connect('Fl_I:stat:T', 'W_start.T')
+        self.connect('Fl_I:stat:P', 'W_start.P')
         self.connect('inlet_area', 'W_start.area')
         self.connect('W_start.W', 'start.W')
 
@@ -73,10 +78,10 @@ class CompressionSystem(Group):
         conn_fl(self, 'start', 'inlet.Fl_I')
         conn_fl(self, 'inlet.Fl_O', 'diffuser.Fl_I')
         conn_fl(self, 'diffuser.Fl_O', 'comp1.Fl_I')
-        conn_fl(self, 'comp1.Fl_O', 'comp1_funnel.Fl_I')
+        conn_fl(self, 'comp1.Fl_O', 'comp1_funnel.Fl_I', connect_stat=False)
         conn_fl(self, 'comp1_funnel.Fl_O', 'split.Fl_I')
         conn_fl(self, 'split.Fl_O1', 'comp2.Fl_I')
-        conn_fl(self, 'comp2.Fl_O', 'comp2_funnel.Fl_I')
+        conn_fl(self, 'comp2.Fl_O', 'comp2_funnel.Fl_I', connect_stat=False)
         conn_fl(self, 'split.Fl_O2', 'nozzle.Fl_I')
 
         self.connect('comp1.power', 'perf.C1_pwr')
@@ -94,8 +99,12 @@ if __name__ == "__main__":
 
     p.setup()
 
-    g.params['Fl_I:stat:P'] = cu(0.01436, 'lbf', 'Pa')
-    g.params['Fl_I:stat:T'] = cu(525.6, 'degR', 'degK')
+    g.params['Fl_I:stat:P'] = 99.0
+    g.params['Fl_I:stat:T'] = 292.6
+    g.params['Fl_I:stat:gamma'] = 1.41 # constant for air
+    g.params['Fl_I:stat:MN'] = 0.5
+    g.params['R'] = 286.0 # constant for air
+    g.params['inlet_area'] = 2.0
 
     g.params['inlet.ram_recovery'] = 1.0
 
@@ -111,7 +120,7 @@ if __name__ == "__main__":
     g.params['split.MN_out2_target'] = 1.0
 
     g.params['nozzle.dPqP'] = 0.0
-#    g.params['Ps_exhaust'] = 
+    g.params['nozzle.Ps_ideal'] = 99.0 # TODO is this right??
 
     g.params['comp2.PR_design'] = 5.0
     g.params['comp2.eff_design'] = 0.8
@@ -119,66 +128,3 @@ if __name__ == "__main__":
     g.params['comp2_funnel.MN_out_target'] = 0.6
 
     p.run()
-
-
-
-
-# TODO still working..............
-
-
-        self.connect('duct2.Fl_O.Ps', 'perf.Ps_bearing')
-
-        #Input variable pass_throughs to the assembly boundary
-        #Compress -> Tube
-        self.connect('W_in', 'tube.W')
-        self.connect('Ts_tube','tube.Ts')
-        self.connect('Ps_tube', 'tube.Ps')
-        self.connect('Mach_pod_max', 'tube.Mach')
-        #Compress -> Inlet
-        self.connect('Mach_c1_in', 'inlet.MNexit_des')
-        #Compress -> C1
-        self.connect('c1_PR_des','comp1.PR_des')
-        #Compress -> C2
-        self.connect('c2_PR_des','comp2.PR_des')
-        #Compress -> Splitter
-        self.connect('W_bearing_in', 'split.W1_des')
-        #Compress -> Perf
-        self.connect('Ps_bearing', 'perf.Ps_bearing_target')
-        
-        #Output variable pass_throughs to the assembly boundary
-        self.connect('tube.Fl_O.rhot', 'rho_air') #promoted for aero calc
-        self.connect('tube.Fl_O.area', 'area_inlet_in')
-        self.connect('tube.Fl_O.Vflow', 'speed_max')
-        self.connect('inlet.Fl_O.area', 'area_c1_in')
-        self.connect('comp1.Fl_O.area', 'area_c1_out')
-        self.connect('nozzle.Fl_O.area', 'nozzle_flow_area')
-        self.connect('nozzle.Fl_O', 'nozzle_Fl_O')
-        self.connect('duct2.Fl_O', 'bearing_Fl_O')
-        self.connect('perf.F_net','F_net')
-        self.connect('perf.pwr', 'pwr_req') 
-        self.connect('perf.Ps_bearing_residual', 'Ps_bearing_residual')
-
-
-
-if __name__ == "__main__": 
-    from math import pi
-    from openmdao.main.api import set_as_top
-
-    hlc = set_as_top(CompressionSystem())
-    hlc.Mach_pod_max = 1
-    hlc.run()
-
-    print "pwr: ", hlc.comp1.pwr+hlc.comp2.pwr,hlc.comp1.pwr,hlc.comp2.pwr 
-    print "tube area:", hlc.tube.Fl_O.area 
-    print "tube Ps", hlc.tube.Fl_O.Ps, hlc.tube.Fl_O.Pt
-    print "tube Rhos", hlc.tube.Fl_O.rhos
-    print "tube W", hlc.tube.W
-    print "inlet W", hlc.inlet.Fl_I.W
-    print "tube rad: ", (hlc.tube.Fl_O.area/pi)**.5
-    print "tube V: ", hlc.tube.Fl_O.Vflow, hlc.tube.Fl_O.Mach
-
-    fs = hlc.tube.Fl_O
-
-
-
-
