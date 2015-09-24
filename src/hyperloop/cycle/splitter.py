@@ -88,8 +88,8 @@ class SplitterW(Group):
 
         # total vars
         for v_name in ('h','T','P','S','rho','gamma','Cp','Cv','n','n_moles'):
-            for n in range(2):
-                self.add('%s_passthru_%d' % (v_name, n), PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O%d:tot:%s' % (n, v_name), 0.0), promotes=['*'])
+            for n in (1, 2):
+                self.add('%s_passthru%d' % (v_name, n), PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O%d:tot:%s' % (n, v_name), 0.0), promotes=['*'])
 
         self.add('split_calc', SplitterWCalc(mode), promotes=['*'])
 
@@ -101,7 +101,8 @@ class SplitterW(Group):
             self.connect('MN_out1_target', 'out1_stat.MN_target')
             self.connect('MN_out2_target', 'out2_stat.MN_target')
 
-        self.add('FAR_passthru', PassThrough('Fl_I:FAR', 'Fl_O:FAR', 0.0), promotes=['*'])
+        for n in (1, 2):
+            self.add('FAR_passthru%d' % n, PassThrough('Fl_I:FAR', 'Fl_O%d:FAR' % n, 0.0), promotes=['*'])
 
     def solve_nonlinear(self, params, unknowns, resids):
         self.out1_static.params['W'] = params['W1']
