@@ -16,10 +16,10 @@ class SplitterWCalc(Component):
     def __init__(self, mode="MN"):
         super(SplitterWCalc, self).__init__()
 
-        if mode == "MN" or mode == "area":
+        if mode == "MN":
             pass
         else:
-            raise ValueError('Only "MN" and "area" are allowed values for mode')
+            raise ValueError('Only "MN" is an allowed value for mode')
 
         self.mode = mode
 
@@ -28,25 +28,11 @@ class SplitterWCalc(Component):
             self.add_param('MN_out1_target', 1.0, desc='Exit Mach for Fl_O1', units='m**2')
             self.add_param('MN_out2_target', 1.0, desc='Exit Mach for Fl_O2', units='m**2')
 
-        elif mode == 'area':
-            self.add_param('area_out1_target', 1.0, desc='Exit area for Fl_O1', units='m**2')
-            self.add_param('area_out2_target', 1.0, desc='Exit area for Fl_O2', units='m**2')
-
-            self.add_param('exit_area1', 1.0, desc='Proposed exit area for Fl_O1')
-            self.add_param('exit_area2', 1.0, desc='Proposed exit area for Fl_O2')
-
-            self.add_state('area_resid1', 0.0, desc='exit_area_1 - area by Mach', units='m**2')
-            self.add_state('area_resid2', 0.0, desc='exit_area_2 - area by Mach', units='m**2')
-
     def solve_nonlinear(self, params, unknowns, resids):
         self.apply_nonlinear(self, params, unknowns, resids)
 
-    def apply_nonlinear(self, params, unknowns, resids):
-        if mode == 'area':
-            resids['area_resid1'] = params['exit_area1'] - params['area_out1_target']
-            resids['area_resid2'] = params['exit_area2'] - params['area_out2_target']
-
-        elif mode == 'MN':
+    def apply_nonlinear(self, params, unknowns, resids, metadata):
+        if self.mode == 'MN':
             pass
 
 
@@ -56,10 +42,10 @@ class SplitterW(Group):
     def __init__(self, thermo_data=species_data.janaf, elements=AIR_MIX, mode="MN"):
         super(SplitterW, self).__init__()
 
-        if mode == "MN" or mode == "area":
+        if mode == "MN":
             pass
         else:
-            raise ValueError('Only "MN" and "area" are allowed values for mode')
+            raise ValueError('Only "MN" is an allowed value for mode')
 
         self.mode = mode
 
@@ -93,38 +79,12 @@ class SplitterW(Group):
 
         self.add('split_calc', SplitterWCalc(mode), promotes=['*'])
 
-        if mode == 'area':
-            self.connect('Fl_O1:stat:area', 'exit_area1')
-            self.connect('Fl_O2:stat:area', 'exit_area2')
-
-        elif mode == 'MN':
+        if mode == 'MN':
             self.connect('MN_out1_target', 'out1_stat.MN_target')
             self.connect('MN_out2_target', 'out2_stat.MN_target')
 
         for n in (1, 2):
             self.add('FAR_passthru%d' % n, PassThrough('Fl_I:FAR', 'Fl_O%d:FAR' % n, 0.0), promotes=['*'])
-
-    def solve_nonlinear(self, params, unknowns, resids):
-        self.out1_static.params['W'] = params['W1']
-        self.out2_static.params['W'] = params['Fl_I:stat:W'] - params['W1']
-
-        if self.mode == 'area':
-            def f(Mach_guess, exit_n):
-                flow = self.out1_stat if exit_n == 1 else self.out2_stat
-                flow.params['MN_target'] = Mach_guess
-                flow.solve_nonlinear(flow.params, flow.unknowns, flow.resids)
-                self.split_calc.apply_nonlinear(self.split_calc.params, self.split_calc.unknowns, self.split_calc.resids)
-                return resids['area_resid%d' % exit_n]
-            
-            flow = self.out2_stat
-            flow.params['MN_target'] = params['Fl_I:stat:Mach']
-            flow.solve_nonlinear(flow.params, flow.unknowns, flow.resids)
-
-            for n in (1, 2):
-                newton(f, params['Fl_I:stat:Mach'], args=(n,))
-
-        elif self.mode == 'MN':
-            super(SplitterW, self).solve_nonlinear(params, unknowns, resids)
 
 
 if __name__ == "__main__":
