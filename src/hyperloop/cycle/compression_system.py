@@ -39,10 +39,10 @@ class FlowInProps(Component):
         Ts = params['tube_T']
         Ps = params['tube_P']
         R = params['R']
-        unknowns['W'] = Ps / R / Ts * params['inlet_area'] * MN * sqrt(gam * R * Ts)
         multiplier = (1.0 + (gam - 1.0) / 2.0 * MN ** 2)
         unknowns['Pt'] = Ps * multiplier ** (gam / (gam - 1.0))
         unknowns['Tt'] = Ts * multiplier
+        unknowns['W'] = Ps / R / Ts * params['inlet_area'] * MN * sqrt(gam * R * Ts)
 
 
 class Performance(Component):
@@ -74,7 +74,7 @@ class CompressionSystem(Group):
 
     @staticmethod
     def connect_flow(group, Fl_O_name, Fl_I_name, connect_stat=True, connect_FAR=True):
-        for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S'):
+        for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n'):
             for prefix in (('tot', 'stat') if connect_stat else ('tot',)):
                 group.connect('%s:%s:%s' % (Fl_O_name, prefix, v_name), '%s:%s:%s' % (Fl_I_name, prefix, v_name))
         if connect_stat:
@@ -135,7 +135,9 @@ if __name__ == "__main__":
     g = CompressionSystem()
     p = Problem(root=g)
 
-    p.setup()
+    p.setup(check=False)
+
+    g.diffuser.set_stat.statics.chem_eq.solver_options['tol'] = 1e-100
 
     p['tube_P'] = 99.0
     p['tube_T'] = 292.6
@@ -162,3 +164,17 @@ if __name__ == "__main__":
     p['comp2_funnel.MN_out_target'] = 0.6
 
     p.run()
+
+    print 'W:', p['Fl_I_props.W'], 'kg/s'
+    print 'Start S:', p['start.Fl_O:tot:S']
+    print 'Start Pt:', p['start.Fl_O:tot:P'], 'psi'
+    print 'Start Tt:', p['start.Fl_O:tot:T'], 'degR'
+    print 'Inlet S out:', p['inlet.Fl_O:tot:S']
+    print 'Diffuser Fl_I:tot:S', p['diffuser.Fl_I:tot:S']
+    print 'Diffuser set_stat.S', p['diffuser.set_stat.S']
+    print 'Diffuser set_stat.Pt:', p['diffuser.set_stat.Pt']
+    print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area']
+    print 'Pwr (tot, comp1, comp2):', p['comp1.power'] + p['comp2.power'], p['comp1.power'], p['comp2.power']
+    print 'Inlet area:', p['inlet_area']
+    print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area']
+    print 'Comp2 exit area:', p['comp2_funnel.Fl_O:stat:area']

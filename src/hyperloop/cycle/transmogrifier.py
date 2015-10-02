@@ -1,3 +1,5 @@
+import numpy as np
+
 from openmdao.core.group import Group
 from openmdao.core.component import Component
 from openmdao.solvers.newton import Newton
@@ -54,22 +56,25 @@ class Transmogrifier(Group):
         flow_in = FlowIn('Fl_I', self.num_prod)
         self.add('flow_in', flow_in, promotes=flow_in.flow_in_vars)
 
-        # Calculate statics based on MN
-        set_stat = SetStaticMN(thermo_data, elements, 'Fl_O:stat')
-        self.add('set_stat', set_stat, promotes=set_stat.flow_out_vars)
-
-        self.connect('Fl_I:tot:P', 'set_stat.Pt')
-        self.connect('Fl_I:tot:S', 'set_stat.S')
-        self.connect('Fl_I:stat:W', 'set_stat.W')
-
         if mode == 'MN':
             promotes = ['MN_out_target']
         self.add('calc', TransmogrifierCalc(mode), promotes=promotes)
 
+        # Calculate statics based on MN
+        set_stat = SetStaticMN(thermo_data, elements, 'Fl_O:stat')
+        self.add('set_stat', set_stat, promotes=set_stat.flow_out_vars)
+
+        self.connect('Fl_I:tot:gamma', 'set_stat.gamt')
+        self.connect('Fl_I:tot:h', 'set_stat.ht')
+        self.connect('Fl_I:tot:P', 'set_stat.Pt')
+        self.connect('Fl_I:tot:S', 'set_stat.S')
+        self.connect('Fl_I:stat:W', 'set_stat.W')
+        self.connect('Fl_I:tot:n', 'set_stat.n_guess')
+
         if mode == 'MN':
             self.connect('MN_out_target', 'set_stat.MN_target')
 
-        for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n', 'n_moles'):
+        for v_name in ('h', 'T', 'P', 'rho', 'gamma', 'Cp', 'Cv', 'S', 'n_moles'):
             self.add('passthru_tot:%s' % v_name, PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O:tot:%s' % v_name, 0.0), promotes=['*'])
-
+        self.add('passthru_tot:n', PassThrough('Fl_I:tot:n', 'Fl_O:tot:n', np.zeros(self.num_prod)), promotes=['*'])
         self.add('passthru_FAR', PassThrough('Fl_I:FAR', 'Fl_O:FAR', 0.0), promotes=['*'])

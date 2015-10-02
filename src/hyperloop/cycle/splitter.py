@@ -1,3 +1,5 @@
+import numpy as np
+
 from openmdao.core.group import Group
 from openmdao.core.component import Component
 
@@ -73,9 +75,11 @@ class SplitterW(Group):
         self.connect('Fl_I:tot:S', 'out2_stat.S')
 
         # total vars
-        for v_name in ('h','T','P','S','rho','gamma','Cp','Cv','n','n_moles'):
+        for v_name in ('h','T','P','S','rho','gamma','Cp','Cv','n_moles'):
             for n in (1, 2):
                 self.add('%s_passthru%d' % (v_name, n), PassThrough('Fl_I:tot:%s' % v_name, 'Fl_O%d:tot:%s' % (n, v_name), 0.0), promotes=['*'])
+        for n in (1, 2):
+            self.add('n_passthru%d' % n, PassThrough('Fl_I:tot:n', 'Fl_O%d:tot:n' % n, np.zeros(self.num_prod)), promotes=['*'])
 
         self.add('split_calc', SplitterWCalc(mode), promotes=['*'])
 
