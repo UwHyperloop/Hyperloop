@@ -137,8 +137,6 @@ if __name__ == "__main__":
 
     p.setup(check=False)
 
-    g.diffuser.set_stat.statics.chem_eq.solver_options['tol'] = 1e-100
-
     p['tube_P'] = 99.0
     p['tube_T'] = 292.6
     p['pod_MN'] = 0.5
@@ -166,10 +164,12 @@ if __name__ == "__main__":
     p.run()
 
     print 'W:', p['Fl_I_props.W'], 'kg/s'
+    print 'Start h:', p['start.Fl_O:tot:h'], 'Btu/lb'
     print 'Start S:', p['start.Fl_O:tot:S']
     print 'Start Pt:', p['start.Fl_O:tot:P'], 'psi'
     print 'Start Tt:', p['start.Fl_O:tot:T'], 'degR'
     print 'Inlet S out:', p['inlet.Fl_O:tot:S']
+    print 'Diffuser Fl_I:tot:h', p['diffuser.Fl_I:tot:h'], 'Btu/lb'
     print 'Diffuser Fl_I:tot:S', p['diffuser.Fl_I:tot:S']
     print 'Diffuser set_stat.S', p['diffuser.set_stat.S']
     print 'Diffuser set_stat.Pt:', p['diffuser.set_stat.Pt']
