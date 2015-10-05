@@ -66,7 +66,7 @@ class Transmogrifier(Group):
 
         self.connect('Fl_I:tot:gamma', 'set_stat.gamt')
         self.connect('Fl_I:tot:h', 'set_stat.ht')
-#        self.connect('Fl_I:tot:P', 'set_stat.Pt')
+        self.connect('Fl_I:tot:P', 'set_stat.Pt')
         self.connect('Fl_I:tot:S', 'set_stat.S')
         self.connect('Fl_I:stat:W', 'set_stat.W')
         self.connect('Fl_I:tot:n', 'set_stat.n_guess')

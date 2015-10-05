@@ -163,18 +163,35 @@ if __name__ == "__main__":
 
     p.run()
 
+    print 'Inlet area:', cu(p['inlet_area'], 'm**2', 'inch**2'), 'inch**2'
     print 'W:', p['Fl_I_props.W'], 'kg/s'
+    print ''
     print 'Start h:', p['start.Fl_O:tot:h'], 'Btu/lb'
-    print 'Start S:', p['start.Fl_O:tot:S']
+    print 'Start S:', p['start.Fl_O:tot:S'], 'Btu/lbm/degR'
     print 'Start Pt:', p['start.Fl_O:tot:P'], 'psi'
     print 'Start Tt:', p['start.Fl_O:tot:T'], 'degR'
-    print 'Inlet S out:', p['inlet.Fl_O:tot:S']
-    print 'Diffuser Fl_I:tot:h', p['diffuser.Fl_I:tot:h'], 'Btu/lb'
-    print 'Diffuser Fl_I:tot:S', p['diffuser.Fl_I:tot:S']
-    print 'Diffuser set_stat.S', p['diffuser.set_stat.S']
-    print 'Diffuser set_stat.Pt:', p['diffuser.set_stat.Pt']
-    print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area']
+    print 'Start n:', p['start.Fl_O:tot:n']
+    print ''
+    print 'Inlet h:', p['inlet.Fl_O:tot:h'], 'Btu/lbm'
+    print 'Inlet S:', p['inlet.Fl_O:tot:S'], 'Btu/lbm/degR'
+    print 'Inlet Pt:', p['inlet.Fl_O:tot:P'], 'psi'
+    print 'Inlet Tt:', p['inlet.Fl_O:tot:T'], 'degR'
+    print 'Inlet n:', p['inlet.Fl_O:tot:n']
+    print ''
+    print 'Diffuser Fl_I:tot:h:', p['diffuser.Fl_I:tot:h'], 'Btu/lbm'
+    print 'Diffuser Fl_I:tot:S:', p['diffuser.Fl_I:tot:S'], 'Btu/lbm/degR'
+    print 'Diffuser Fl_I:tot:P:', p['diffuser.Fl_I:tot:P'], 'psi'
+    print 'Diffuser Fl_I:tot:T:', p['diffuser.Fl_I:tot:T'], 'degR'
+    print 'Diffuser Fl_I:tot:n:', p['diffuser.Fl_I:tot:n']
+    print ''
+    print 'Diffuser set_stat.ht:', p['diffuser.set_stat.ht'], 'Btu/lbm'
+    print 'Diffuser set_stat.S:', p['diffuser.set_stat.S'], 'Btu/lbm/degR'
+    print 'Diffuser set_stat.Pt:', p['diffuser.set_stat.Pt'], 'psi'
+    print 'Diffuser set_stat.n_guess:', p['diffuser.set_stat.n_guess']
+    print 'Diffuser set_stat.n:', p['diffuser.set_stat.n']
+    print ''
+    print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area'], 'inch**2'
+    print ''
     print 'Pwr (tot, comp1, comp2):', p['comp1.power'] + p['comp2.power'], p['comp1.power'], p['comp2.power']
-    print 'Inlet area:', p['inlet_area']
     print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area']
     print 'Comp2 exit area:', p['comp2_funnel.Fl_O:stat:area']
