@@ -171,6 +171,7 @@ if __name__ == "__main__":
     print 'Start Pt:', p['start.Fl_O:tot:P'], 'psi'
     print 'Start Tt:', p['start.Fl_O:tot:T'], 'degR'
     print 'Start n:', p['start.Fl_O:tot:n']
+    print 'Start MN:', p['start.Fl_O:stat:MN']
     print ''
     print 'Inlet h:', p['inlet.Fl_O:tot:h'], 'Btu/lbm'
     print 'Inlet S:', p['inlet.Fl_O:tot:S'], 'Btu/lbm/degR'
@@ -189,6 +190,8 @@ if __name__ == "__main__":
     print 'Diffuser set_stat.Pt:', p['diffuser.set_stat.Pt'], 'psi'
     print 'Diffuser set_stat.n_guess:', p['diffuser.set_stat.n_guess']
     print 'Diffuser set_stat.n:', p['diffuser.set_stat.n']
+    print 'Diffuser set_stat.MN_target', p['diffuser.set_stat.MN_target']
+    print 'Diffuser set_stat.MN', p['diffuser.set_stat.MN']
     print ''
     print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area'], 'inch**2'
     print ''
