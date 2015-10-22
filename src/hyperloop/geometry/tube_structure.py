@@ -6,7 +6,8 @@ class TubeStructural(Component):
     '''Placeholder for real structural calculations to size the tube wall Thickness''' 
     def __init__(self):
         super(TubeStructural, self).__init__()
-        self.add_param('Ps', 99.0, desc='static pressure in the tube', units='Pa')
+        self.add_param('Ps', 99.0, desc='static pressure in tube', units='Pa')
+        self.add_param('Ts', 292.1, desc='static temperature in tube', units='degK')
         self.add_param('r_inner', 3.0, desc='inner radius of tube', units='m')
 
         self.add_output('r_outer', 3.006, desc='outer radius of tube', units='m')
