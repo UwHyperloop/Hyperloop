@@ -144,12 +144,12 @@ if __name__ == "__main__":
 
     p['diffuser.MN_out_target'] = p['pod_MN'] # no diffuser if equal to pod_MN
 
-    p['comp1.PR_design'] = 12.47
+    p['comp1.PR_design'] = 20.0
     p['comp1.eff_design'] = 0.8
 
     p['comp1_funnel.MN_out_target'] = 0.6
 
-    p['split.W1'] = 0.44 # weight flow requirement of the bearing system goes here
+    p['split.W1'] = 0.2 # weight flow requirement of the bearing system goes here
     p['split.MN_out1_target'] = 0.6
     p['split.MN_out2_target'] = 1.0
 
@@ -164,36 +164,24 @@ if __name__ == "__main__":
     p.run()
 
     print 'Inlet area:', cu(p['inlet_area'], 'm**2', 'inch**2'), 'inch**2'
-    print 'W:', p['Fl_I_props.W'], 'kg/s'
-    print ''
-    print 'Start h:', p['start.Fl_O:tot:h'], 'Btu/lb'
-    print 'Start S:', p['start.Fl_O:tot:S'], 'Btu/lbm/degR'
-    print 'Start Pt:', p['start.Fl_O:tot:P'], 'psi'
-    print 'Start Tt:', p['start.Fl_O:tot:T'], 'degR'
-    print 'Start n:', p['start.Fl_O:tot:n']
-    print 'Start MN:', p['start.Fl_O:stat:MN']
+    print 'W:', p['start.Fl_O:stat:W'], 'lbm/s'
     print ''
     print 'Inlet h:', p['inlet.Fl_O:tot:h'], 'Btu/lbm'
     print 'Inlet S:', p['inlet.Fl_O:tot:S'], 'Btu/lbm/degR'
     print 'Inlet Pt:', p['inlet.Fl_O:tot:P'], 'psi'
     print 'Inlet Tt:', p['inlet.Fl_O:tot:T'], 'degR'
     print 'Inlet n:', p['inlet.Fl_O:tot:n']
-    print ''
-    print 'Diffuser Fl_I:tot:h:', p['diffuser.Fl_I:tot:h'], 'Btu/lbm'
-    print 'Diffuser Fl_I:tot:S:', p['diffuser.Fl_I:tot:S'], 'Btu/lbm/degR'
-    print 'Diffuser Fl_I:tot:P:', p['diffuser.Fl_I:tot:P'], 'psi'
-    print 'Diffuser Fl_I:tot:T:', p['diffuser.Fl_I:tot:T'], 'degR'
-    print 'Diffuser Fl_I:tot:n:', p['diffuser.Fl_I:tot:n']
-    print ''
-    print 'Diffuser set_stat.ht:', p['diffuser.set_stat.ht'], 'Btu/lbm'
-    print 'Diffuser set_stat.S:', p['diffuser.set_stat.S'], 'Btu/lbm/degR'
-    print 'Diffuser set_stat.Pt:', p['diffuser.set_stat.Pt'], 'psi'
-    print 'Diffuser set_stat.n_guess:', p['diffuser.set_stat.n_guess']
-    print 'Diffuser set_stat.n:', p['diffuser.set_stat.n']
-    print 'Diffuser set_stat.MN_target', p['diffuser.set_stat.MN_target']
-    print 'Diffuser set_stat.MN', p['diffuser.set_stat.MN']
+    print 'Inlet rhot:', p['inlet.Fl_O:tot:rho'], 'lbm/ft**3'
     print ''
     print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area'], 'inch**2'
+    print ''
+    print 'Comp1 Pt:', p['comp1.Fl_O:tot:P'], 'psi'
+    print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area'], 'inch**2'
+    print 'Comp1 exit W:', p['comp1_funnel.Fl_O:stat:W'], 'lbm/s'
+    print ''
+    print 'Split W total:', p['split.Fl_I:stat:W'], 'lbm/s'
+    print 'Split W1:', p['split.Fl_O1:stat:W'], 'lbm/s'
+    print 'Split W2:', p['split.Fl_O2:stat:W'], 'lbm/s'
     print ''
     print 'Pwr (tot, comp1, comp2):', p['comp1.power'] + p['comp2.power'], p['comp1.power'], p['comp2.power']
     print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area']
