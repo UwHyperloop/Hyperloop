@@ -45,3 +45,4 @@ if __name__ == "__main__":
     print 'Final velocity:', p['pusher.pod_V'], 'm/s'
     print '               ', cu(p['pusher.pod_V'], 'm/s', 'ft/s'), 'ft/s'
     print '               ', cu(p['pusher.pod_V'], 'm/s', 'mi/h'), 'mi/h'
+    print '           Mach', p['pusher.pod_V'] / 343.3 # assumes 343.3 to be speed of sound in tube env

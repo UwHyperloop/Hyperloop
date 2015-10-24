@@ -183,6 +183,8 @@ if __name__ == "__main__":
     print 'Split W1:', p['split.Fl_O1:stat:W'], 'lbm/s'
     print 'Split W2:', p['split.Fl_O2:stat:W'], 'lbm/s'
     print ''
-    print 'Pwr (tot, comp1, comp2):', p['comp1.power'] + p['comp2.power'], p['comp1.power'], p['comp2.power']
     print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area']
     print 'Comp2 exit area:', p['comp2_funnel.Fl_O:stat:area']
+    print 'Comp1 power (-HP):', -p['comp1.power']
+    print 'Comp2 power (-HP):', -p['comp2.power']
+    print 'Total comp power (-HP):', -(p['comp1.power'] + p['comp2.power'])
