@@ -5,11 +5,17 @@ from scipy.optimize import newton
 import pylab
 
 from openmdao.core.component import Component
+from openmdao.core.group import Group
 from openmdao.units.units import convert_units as cu
+from openmdao.components.param_comp import ParamComp
+from openmdao.components.constraint import ConstraintComp
 
 from pycycle.set_total import SetTotal
 from pycycle.thermo_static import SetStaticMN, SetStaticPs
 from pycycle.constants import AIR_MIX
+
+from geometry.tube_structure import TubeStructural
+from geometry.inlet import InletGeom
 
 class AreaRatio(Component):
     def __init__(self):
@@ -46,7 +52,7 @@ class TubeThermo(Component):
         self.add_param('gamma', 1.41, desc='ratio of specific heats')
 
         self.add_output('Pt', 0.0, desc='total pressure in tube', units='Pa')
-        self.add_output('Tt', 0.0, desc='total temperature in tube', units='Tt')
+        self.add_output('Tt', 0.0, desc='total temperature in tube', units='degK')
 
     def solve_nonlinear(self, params, unknowns, resids):
         multiplier = (1.0 + (params['gamma'] - 1.0) / 2.0 * params['Mach'] ** 2)
@@ -80,7 +86,7 @@ class TubeLimitFlow(Group):
         super(TubeLimitFlow, self).__init__()
         self.add('Mach_param', ParamComp('Mach', 1.0), promotes=['Mach'])
         self.add('Mach_con', ConstraintComp('Mach > 0.0'))
-        self.add('tube_struct', TubeStructure())
+        self.add('tube_struct', TubeStructural())
         self.add('inlet', InletGeom())
         self.add('AR_comp', AreaRatio(), promotes=['Mach_bypass', 'bypass_area'])
         self.add('tube_thermo', TubeThermo())
@@ -112,23 +118,24 @@ class TubeLimitFlow(Group):
         self.connect('tube_static.V', 'tube_aero.velocity_tube')
         self.connect('bypass_static.V', 'tube_aero.velocity_bypass')
         self.connect('tube_total.rho', 'tube_aero.rho_tube')
-        self.connect('bypass_total.rho', 'tube_aero.bypass_rho')
+        self.connect('bypass_total.rho', 'tube_aero.rho_bypass')
         self.connect('bypass_area', 'tube_aero.bypass_area')
         self.connect('tube_struct.r_inner', 'tube_aero.tube_r')
 
-def plot_data(p, comp, c='b'):
+def plot_data(p, c='b'):
     '''utility function to make the Kantrowitz Limit Plot''' 
     Machs = []
     W_tube = []
     W_kant = []
     for Mach in np.arange(.2, 1.1, .1):
-        comp.params['Mach'] = Mach
+        p['comp.Mach'] = Mach
         p.run()
         Machs.append(Mach)
-        W_kant.append(comp.unknowns['W_kant'])
-        W_tube.append(comp.unknowns['W_tube'])
-    fig = pylab.plot(Machs, W_tube, '-', label="%3.1f Req." % (comp.unknowns['tube_area'] / comp.unknowns['inlet.area_in']), lw=3, c=c)
-    pylab.plot(Machs, W_kant, '--', label="%3.1f Limit" % (comp.unknowns['tube_area'] / comp.unknowns['inlet.area_in']), lw=3, c=c)
+        W_kant.append(p['comp.W_kant'])
+        W_tube.append(p['comp.W_tube'])
+    print 'Area in:', p['comp.inlet.area_in']
+    fig = pylab.plot(Machs, W_tube, '-', label="%3.1f Req." % (p['comp.tube_area'] / p['comp.inlet.area_in']), lw=3, c=c)
+    pylab.plot(Machs, W_kant, '--', label="%3.1f Limit" % (p['comp.tube_area'] / p['comp.inlet.area_in']), lw=3, c=c)
     pylab.tick_params(axis='both', which='major', labelsize=15)
     pylab.xlabel('Pod Mach Number', fontsize=18)
     pylab.ylabel('Flow Rate (kg/sec)', fontsize=18)
@@ -142,14 +149,14 @@ if __name__ == '__main__':
     comp = p.root.add('comp', TubeLimitFlow())
     p.setup()
 
-    comp.params['tube_struct.r_inner'] = 100.0
-    plot_data(p, comp, c='b')
+    p['comp.tube_struct.r_inner'] = 100.0
+    plot_data(p, c='b')
 
-    comp.params['tube_struct.r_inner'] = 150.0
-    plot_data(p, comp, c='g')
+    p['comp.tube_struct.r_inner'] = 150.0
+    plot_data(p, c='g')
 
-    comp.params['tube_struct.r_inner'] = 200.0
-    plot_data(p, comp, c='r')
+    p['comp.tube_struct.r_inner'] = 200.0
+    plot_data(p, c='r')
 
     pylab.legend(loc='best')
     
