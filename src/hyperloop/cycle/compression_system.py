@@ -18,33 +18,6 @@ from transmogrifier import Transmogrifier
 from math import sqrt, pi
 
 
-class FlowInProps(Component):
-    def __init__(self):
-        super(FlowInProps, self).__init__()
-
-        self.add_param('pod_MN', 0.5, desc='travel Mach of the pod')
-        self.add_param('gamma', 1.41, desc='ratio of specific heats of air')
-        self.add_param('tube_T', 292.6, desc='static temperature of tube', units='degK')
-        self.add_param('tube_P', 99.0, desc='static pressure of tube', units='Pa')
-        self.add_param('inlet_area', 2.0, desc='cross sectional area of inlet', units='m**2')
-        self.add_param('R', 286.0, desc='specific gas constant for flow', units='m**2/s**2/degK')
-
-        self.add_output('W', 0.0, desc='weight flow entering compression system', units='kg/s')
-        self.add_output('Pt', 0.0, desc='total pressure of flow entering compression system', units='Pa')
-        self.add_output('Tt', 0.0, desc='total temperature of flow entering compression system', units='degK')
-
-    def solve_nonlinear(self, params, unknowns, resids):
-        gam = params['gamma']
-        MN = params['pod_MN']
-        Ts = params['tube_T']
-        Ps = params['tube_P']
-        R = params['R']
-        multiplier = (1.0 + (gam - 1.0) / 2.0 * MN ** 2)
-        unknowns['Pt'] = Ps * multiplier ** (gam / (gam - 1.0))
-        unknowns['Tt'] = Ts * multiplier
-        unknowns['W'] = Ps / R / Ts * params['inlet_area'] * MN * sqrt(gam * R * Ts)
-
-
 class Performance(Component):
     def __init__(self):
         super(Performance, self).__init__()
@@ -95,8 +68,8 @@ class CompressionSystem(Group):
         self.gas_prods = gas_thermo.products
         self.num_prod = len(self.gas_prods)
 
-        self.add('Fl_I_props', FlowInProps(), promotes=['pod_MN', 'gamma', 'tube_T', 'tube_P', 'inlet_area'])
-        self.add('start', FlowStart())
+        #self.add('Fl_I_props', FlowInProps(), promotes=['pod_MN', 'gamma', 'tube_T', 'tube_P', 'inlet_area'])
+        #self.add('start', FlowStart())
         self.add('inlet', Inlet())
         self.add('diffuser', Transmogrifier())
         self.add('comp1', Compressor())
@@ -107,13 +80,13 @@ class CompressionSystem(Group):
         self.add('comp2_funnel', Transmogrifier()) # calculates statics based on exit Mach
         self.add('perf', Performance())
 
-        self.connect('Fl_I_props.W', 'start.W')
-        self.connect('Fl_I_props.Pt', 'start.P')
-        self.connect('Fl_I_props.Tt', 'start.T')
-        self.connect('pod_MN', 'start.MN_target')
+        #self.connect('Fl_I_props.W', 'start.W')
+        #self.connect('Fl_I_props.Pt', 'start.P')
+        #self.connect('Fl_I_props.Tt', 'start.T')
+        #self.connect('pod_MN', 'start.MN_target')
 
         conn_fl = CompressionSystem.connect_flow
-        conn_fl(self, 'start.Fl_O', 'inlet.Fl_I', connect_FAR=False)
+        #conn_fl(self, 'start.Fl_O', 'inlet.Fl_I', connect_FAR=False)
         conn_fl(self, 'inlet.Fl_O', 'diffuser.Fl_I', connect_stat=False)
         conn_fl(self, 'diffuser.Fl_O', 'comp1.Fl_I')
         conn_fl(self, 'comp1.Fl_O', 'comp1_funnel.Fl_I', connect_stat=False)
@@ -129,62 +102,57 @@ class CompressionSystem(Group):
         self.connect('inlet.F_ram', 'perf.F_ram')
 
 
-if __name__ == "__main__":
-    from openmdao.core.problem import Problem
-
-    g = CompressionSystem()
-    p = Problem(root=g)
-
-    p.setup(check=False)
-
-    p['tube_P'] = 99.0
-    p['tube_T'] = 292.6
-    p['pod_MN'] = 0.5
-    p['inlet_area'] = 2.0
-
-    p['diffuser.MN_out_target'] = p['pod_MN'] # no diffuser if equal to pod_MN
-
-    p['comp1.PR_design'] = 20.0
-    p['comp1.eff_design'] = 0.8
-
-    p['comp1_funnel.MN_out_target'] = 0.6
-
-    p['split.W1'] = 0.2 # weight flow requirement of the bearing system goes here
-    p['split.MN_out1_target'] = 0.6
-    p['split.MN_out2_target'] = 1.0
-
-    p['nozzle.dPqP'] = 0.0
-    p['nozzle.Ps_exhaust'] = cu(99.0, 'Pa', 'psi') # TODO is this right??
-
-    p['comp2.PR_design'] = 5.0
-    p['comp2.eff_design'] = 0.8
-
-    p['comp2_funnel.MN_out_target'] = 0.6
-
-    p.run()
-
-    print 'Inlet area:', cu(p['inlet_area'], 'm**2', 'inch**2'), 'inch**2'
-    print 'W:', p['start.Fl_O:stat:W'], 'lbm/s'
-    print ''
-    print 'Inlet h:', p['inlet.Fl_O:tot:h'], 'Btu/lbm'
-    print 'Inlet S:', p['inlet.Fl_O:tot:S'], 'Btu/lbm/degR'
-    print 'Inlet Pt:', p['inlet.Fl_O:tot:P'], 'psi'
-    print 'Inlet Tt:', p['inlet.Fl_O:tot:T'], 'degR'
-    print 'Inlet n:', p['inlet.Fl_O:tot:n']
-    print 'Inlet rhot:', p['inlet.Fl_O:tot:rho'], 'lbm/ft**3'
-    print ''
-    print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area'], 'inch**2'
-    print ''
-    print 'Comp1 Pt:', p['comp1.Fl_O:tot:P'], 'psi'
-    print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area'], 'inch**2'
-    print 'Comp1 exit W:', p['comp1_funnel.Fl_O:stat:W'], 'lbm/s'
-    print ''
-    print 'Split W total:', p['split.Fl_I:stat:W'], 'lbm/s'
-    print 'Split W1:', p['split.Fl_O1:stat:W'], 'lbm/s'
-    print 'Split W2:', p['split.Fl_O2:stat:W'], 'lbm/s'
-    print ''
-    print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area']
-    print 'Comp2 exit area:', p['comp2_funnel.Fl_O:stat:area']
-    print 'Comp1 power (-HP):', -p['comp1.power']
-    print 'Comp2 power (-HP):', -p['comp2.power']
-    print 'Total comp power (-HP):', -(p['comp1.power'] + p['comp2.power'])
+#if __name__ == "__main__":
+#    from openmdao.core.problem import Problem
+#
+#    g = CompressionSystem()
+#    p = Problem(root=g)
+#
+#    p.setup(check=False)
+#
+#    p['diffuser.MN_out_target'] = p['pod_MN'] # no diffuser if equal to pod_MN
+#
+#    p['comp1.PR_design'] = 5.0
+#    p['comp1.eff_design'] = 0.8
+#
+#    p['comp1_funnel.MN_out_target'] = 0.6
+#
+#    p['split.W1'] = 0.2 # weight flow requirement of the bearing system goes here
+#    p['split.MN_out1_target'] = 0.6
+#    p['split.MN_out2_target'] = 1.0
+#
+#    p['nozzle.dPqP'] = 0.0
+#    p['nozzle.Ps_exhaust'] = cu(99.0, 'Pa', 'psi') # TODO is this right??
+#
+#    p['comp2.PR_design'] = 4.0
+#    p['comp2.eff_design'] = 0.8
+#
+#    p['comp2_funnel.MN_out_target'] = 0.6
+#
+#    p.run()
+#
+#    print 'Inlet area:', cu(p['inlet_area'], 'm**2', 'inch**2'), 'inch**2'
+#    print 'W:', p['start.Fl_O:stat:W'], 'lbm/s'
+#    print ''
+#    print 'Inlet h:', p['inlet.Fl_O:tot:h'], 'Btu/lbm'
+#    print 'Inlet S:', p['inlet.Fl_O:tot:S'], 'Btu/lbm/degR'
+#    print 'Inlet Pt:', p['inlet.Fl_O:tot:P'], 'psi'
+#    print 'Inlet Tt:', p['inlet.Fl_O:tot:T'], 'degR'
+#    print 'Inlet n:', p['inlet.Fl_O:tot:n']
+#    print 'Inlet rhot:', p['inlet.Fl_O:tot:rho'], 'lbm/ft**3'
+#    print ''
+#    print 'Diffuser exit area:', p['diffuser.Fl_O:stat:area'], 'inch**2'
+#    print ''
+#    print 'Comp1 Pt:', p['comp1.Fl_O:tot:P'], 'psi'
+#    print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area'], 'inch**2'
+#    print 'Comp1 exit W:', p['comp1_funnel.Fl_O:stat:W'], 'lbm/s'
+#    print ''
+#    print 'Split W total:', p['split.Fl_I:stat:W'], 'lbm/s'
+#    print 'Split W1:', p['split.Fl_O1:stat:W'], 'lbm/s'
+#    print 'Split W2:', p['split.Fl_O2:stat:W'], 'lbm/s'
+#    print ''
+#    print 'Comp1 exit area:', p['comp1_funnel.Fl_O:stat:area']
+#    print 'Comp2 exit area:', p['comp2_funnel.Fl_O:stat:area']
+#    print 'Comp1 power (-HP):', -p['comp1.power']
+#    print 'Comp2 power (-HP):', -p['comp2.power']
+#    print 'Total comp power (-HP):', -(p['comp1.power'] + p['comp2.power'])

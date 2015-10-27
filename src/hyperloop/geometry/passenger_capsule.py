@@ -8,9 +8,9 @@ class PassengerCapsule(Component):
         self.add_param('row_len', 1.5, desc='length of each row of seats', units='m')
 
         self.add_output('capsule_len', 0.0, desc='overall length of passenger capsule', units='m')
-        self.add_output('cross_section', 0.0, desc='cross sectional area of passenger capsule', units='m**2')
+        #self.add_output('cross_section', 0.0, desc='cross sectional area of passenger capsule', units='m**2')
 
     def solve_nonlinear(self, params, unknowns, resids):
         # TODO replace 10% "fudge factor" with more specific accomodations
         unknowns['capsule_len'] = 1.1 * params['n_rows'] * params['row_len'] # 10% fudge factor
-        unknowns['cross_section'] = 1.4 # page 15 of the original proposal
+        #unknowns['cross_section'] = 1.4 # page 15 of the original proposal
