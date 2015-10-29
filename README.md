@@ -36,7 +36,7 @@ is closely tied to the maximum speed the pod travels at.
 
 ## Pre-Reqs
 
-This is an [OpenMDAO Plugin](http://openmdao.org/) so you need to install OpenMDAO, PyCycle and all of their dependencies to use it.
+This is an [OpenMDAO Plugin](http://openmdao.org/) so you need to install OpenMDAO 1.2.0 or higher, PyCycle2 and all of their dependencies to use it.
 
 ### OpenMDAO
 
@@ -75,12 +75,7 @@ This will install plugin and let you make modifications as you like.
 
 
 ## Please Read The Docs
-You can read the [online version of the docs](http://openmdao-plugins.github.io/Hyperloop/), which tracks the latest version of the code
-on https://github.com/OpenMDAO-Plugins/Hyperloop. 
-Or you can read the docs directly from the repository. Once you download the repo, you 
-need build the docs one time. If you make any changes to them, you need to rebuild them 
-to see the updates. To build the docs navigate to the top of the repository 
-and use the following command to build the docs. 
+<s>You can read the [online version of the docs](http://openmdao-plugins.github.io/Hyperloop/), which tracks the latest version of the code on https://github.com/OpenMDAO-Plugins/Hyperloop. Or you can read the docs directly from the repository. Once you download the repo, you need build the docs one time. If you make any changes to them, you need to rebuild them to see the updates. To build the docs navigate to the top of the repository and use the following command to build the docs.
     
     plugin build docs
 
@@ -89,9 +84,9 @@ Then, from anywhere in an activated environment you can open the docs with the f
     plugin docs hyperloop
 
 The docs give a lot of background on the model, and explain the thinking that went into its 
-structure. They also give some usage examples. If you plan to make any of your own contributions 
+structure. They also give some usage examples.</s> If you plan to make any of your own contributions 
 to this work, you might find the information in the [OpenMDAO developer docs](http://openmdao.org/docs/dev-guide/index.html) 
-useful. 
+useful.
 
 ### Quickstart
 If you just can't wait to get started, the simulation can be run straight out of the box with:
@@ -101,7 +96,7 @@ If you just can't wait to get started, the simulation can be run straight out of
 
 
 ### Credit
-These models were created by Justin Gray and Jeffrey Chin, with contributions from Scott Jones, Jeff Berton, and Chris Heath
+These models were created by Justin Gray and Jeffrey Chin, with contributions from Scott Jones, Jeff Berton, and Chris Heath. The models have been expanded and modified by Brent Schroeter and the UWashington Hyperloop team.
 
 ### License
 This model is covered by an Apache V2.0 License
