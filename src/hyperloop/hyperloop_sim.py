@@ -3,6 +3,7 @@ from openmdao.core.component import Component
 from openmdao.components.indep_var_comp import IndepVarComp
 from openmdao.components.exec_comp import ExecComp
 from openmdao.drivers.scipy_optimizer import ScipyOptimizer
+from openmdao.units.units import convert_units as cu
 
 from pycycle.components.flow_start import FlowStart
 
@@ -64,6 +65,13 @@ class HyperloopSim(Group):
 
         self.add('inlet_MN_param', IndepVarComp('inlet_MN', 0.5), promotes=['*'])
         self.add('bypass_MN_param', IndepVarComp('bypass_MN', 1.0), promotes=['*']) # choked by default
+        self.add('comp2_mouth_MN_param', IndepVarComp('comp2_mouth_MN', 0.5), promotes=['*'])
+        self.add('internal_bypass_MN_param', IndepVarComp('internal_bypass_MN', 0.5), promotes=['*'])
+        self.add('air_bearing_W_param', IndepVarComp('air_bearing_W', 0.2), promotes=['*'])
+        self.add('tube_P_param', IndepVarComp('tube_P', 99.0, units='Pa'), promotes=['*'])
+        self.add('pod_MN_param', IndepVarComp('pod_MN', 0.3), promotes=['*'])
+        self.add('comp1_exit_MN_param', IndepVarComp('comp1_exit_MN', 0.8), promotes=['*'])
+        self.add('comp2_exit_MN_param', IndepVarComp('comp2_exit_MN', 0.8), promotes=['*'])
 
         self.add('bypass_area_con', ExecComp('c = ((area * 0.00065) - bypass_area) / bypass_area'), promotes=['bypass_area'])
         self.add('inlet_area_con', ExecComp('c = (((area * 0.00065) - inlet_area) ** 2) ** 0.5 / inlet_area'), promotes=['inlet_area'])
@@ -76,6 +84,13 @@ class HyperloopSim(Group):
         self.connect('bypass_W', 'split.W1')
         self.connect('bypass_MN', 'split.MN_out1_target')
         self.connect('inlet_MN', 'split.MN_out2_target')
+        self.connect('comp2_mouth_MN', 'compression_system.split.MN_out1_target')
+        self.connect('comp1_exit_MN', 'compression_system.comp1_funnel.MN_out_target')
+        self.connect('comp2_exit_MN', 'compression_system.comp2_funnel.MN_out_target')
+        self.connect('internal_bypass_MN', 'compression_system.split.MN_out2_target')
+        self.connect('air_bearing_W', 'compression_system.split.W1')
+
+        self.connect('tube_P', 'compression_system.nozzle.Ps_exhaust')
 
         self.connect('split.Fl_O2:stat:MN', 'compression_system.diffuser.MN_out_target') # no diffuser
         
@@ -86,7 +101,7 @@ class HyperloopSim(Group):
         CompressionSystem.connect_flow(self, 'split.Fl_O2', 'compression_system.inlet.Fl_I', connect_stat=False, connect_FAR=False)
 
     @staticmethod
-    def p_factory(tube_P=99.0, tube_T=292.6, pod_MN=0.2, inlet_area=0.785, cross_section=1.0, tube_r=0.9, fill_area=0.214, bypass_MN=0.8):
+    def p_factory(tube_P=99.0, tube_T=292.6, pod_MN=0.2, inlet_area=0.785, cross_section=1.0, tube_r=0.9, fill_area=0.214, bypass_MN=0.9):
         from openmdao.core.problem import Problem
         from openmdao.units.units import convert_units as cu
 
@@ -109,15 +124,14 @@ class HyperloopSim(Group):
         p['cross_section'] = cross_section
         p['compression_system.comp1.PR_design'] = 5.0
         p['compression_system.comp1.eff_design'] = 0.8
-        p['compression_system.comp1_funnel.MN_out_target'] = 1.0 # keep internal MN greater than or equal to MN of bypass to avoid trailing vacuum
-        p['compression_system.split.W1'] = 0.2
-        p['compression_system.split.MN_out1_target'] = 1.0
-        p['compression_system.split.MN_out2_target'] = 0.8
+        p['comp1_exit_MN'] = 1.0 # keep internal MN greater than or equal to MN of bypass to avoid trailing vacuum
+        p['air_bearing_W'] = 0.2
+        p['internal_bypass_MN'] = 1.0
+        p['comp2_mouth_MN'] = 0.8
         p['compression_system.nozzle.dPqP'] = 0.0
-        p['compression_system.nozzle.Ps_exhaust'] = cu(99.0, 'Pa', 'psi')
         p['compression_system.comp2.PR_design'] = 4.0
         p['compression_system.comp2.eff_design'] = 0.8
-        p['compression_system.comp2_funnel.MN_out_target'] = 0.8
+        p['comp2_exit_MN'] = 0.8
 
         p.driver.add_desvar('bypass_W', low=0.01, high=1000.0)
         p.driver.add_constraint('bypass_area_con.c', upper=0.01, lower=-0.01)
@@ -129,14 +143,47 @@ class HyperloopSim(Group):
 
 
 if __name__ == "__main__":
-    p = HyperloopSim.p_factory(pod_MN=0.3, cross_section=1.5)
+    print 'Setting up...'
+
+    p = HyperloopSim.p_factory(pod_MN=0.3, cross_section=1.25)
+    p['compression_system.comp1.PR_design'] = 2.0
+    p['compression_system.comp2.PR_design'] = 5.0
+
+    print 'Setup complete.'
+    print ''
+    print 'Ambient tube pressure:                  ', p['tube_P'], 'Pa'
+    print 'Ambient tube temperature:               ', cu(p['tube_T'], 'degK', 'degC'), 'degC'
+    print 'Maximum pod cross-section:              ', p['cross_section'], 'm**2'
+    print 'Inlet area:                             ', p['inlet_area'], 'm**2'
+    print 'Compressor 1 PR:                        ', p['compression_system.comp1.PR_design']
+    print 'Compressor 2 PR:                        ', p['compression_system.comp2.PR_design']
+    print ''
+    print 'Optimizing...'
+
     p.run()
 
-    print 'Total mass flow:                  ', p['split.split_calc.W_in'], 'kg/s'
-    print 'Mass flow through bypass:         ', p['bypass_W'], 'kg/s'
-    print 'Mass flow into compression system:', p['split.split_calc.W2'], 'kg/s'
-    print 'Tube area:                        ', p['tube_area']
-    print 'Cross section:                    ', p['cross_section']
+    print ''
+    print 'Tube area:                              ', p['tube_area'], 'm**2'
+    print 'Ambient tube pressure:                  ', p['tube_P'], 'Pa'
+    print 'Ambient tube temperature:               ', cu(p['tube_T'], 'degK', 'degC'), 'degC'
+    print 'Maximum pod cross-section:              ', p['cross_section'], 'm**2'
+    print ''
+    print 'Total mass flow:                        ', p['split.split_calc.W_in'], 'kg/s'
+    print 'Mass flow through bypass:               ', p['bypass_W'], 'kg/s'
+    print 'Mass flow through compression system:   ', p['split.split_calc.W2'], 'kg/s'
+    print ''
+    print 'Compressor 1 PR:                        ', p['compression_system.comp1.PR_design']
+    print 'Compressor 2 PR:                        ', p['compression_system.comp2.PR_design']
+    print 'Compressor 1 power requirement:         ', -cu(p['compression_system.comp1.power'], 'hp', 'W'), 'W'
+    print 'Compressor 2 power requirement:         ', -cu(p['compression_system.comp2.power'], 'hp', 'W'), 'W'
+    print 'Total pressure exiting compressor 1:    ', cu(p['compression_system.comp1.Fl_O:tot:P'], 'psi', 'Pa'), 'Pa'
+    print 'Total pressure exiting compressor 2:    ', cu(p['compression_system.comp2.Fl_O:tot:P'], 'psi', 'Pa'), 'Pa'
+    print 'Static temperature exiting compressor 1:', cu(p['compression_system.comp1_funnel.Fl_O:stat:T'], 'degR', 'degC'), 'degC'
+    print '                                        ', cu(p['compression_system.comp1_funnel.Fl_O:stat:T'], 'degR', 'degF'), 'degF'
+    print 'Static temperature exiting compressor 2:', cu(p['compression_system.comp2_funnel.Fl_O:stat:T'], 'degR', 'degC'), 'degC'
+    print '                                        ', cu(p['compression_system.comp2_funnel.Fl_O:stat:T'], 'degR', 'degF'), 'degF'
+    print ''
+    print 'Cross-section of internal bypass duct:  ', cu(p['compression_system.split.Fl_O2:stat:area'], 'inch**2', 'm**2'), 'm**2'
 
 
 #class HyperloopSim(Group):
