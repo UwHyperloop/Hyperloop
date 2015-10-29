@@ -2,6 +2,7 @@ import numpy as np
 
 from openmdao.core.group import Group
 from openmdao.core.component import Component
+from openmdao.components.indep_var_comp import IndepVarComp
 
 from scipy.optimize import newton
 
@@ -15,21 +16,13 @@ from pycycle.flowstation import FlowIn, PassThrough
 class SplitterWCalc(Component):
     """Calculates statics based on weight flow"""
 
-    def __init__(self, mode="MN"):
+    def __init__(self):
         super(SplitterWCalc, self).__init__()
-
-        if mode == "MN":
-            pass
-        else:
-            raise ValueError('Only "MN" is an allowed value for mode')
-
-        self.mode = mode
 
         self.add_param('W_in', 1.0, desc='total weight flow in', units='kg/s')
         self.add_param('W1', 0.44, desc='weight flow for Fl_O1', units='kg/s')
-        if mode == 'MN':
-            self.add_param('MN_out1_target', 1.0, desc='exit Mach for Fl_O1', units='m**2')
-            self.add_param('MN_out2_target', 1.0, desc='exit Mach for Fl_O2', units='m**2')
+        self.add_param('MN_out1_target', 0.5, desc='Mach number of Fl_O1')
+        self.add_param('MN_out2_target', 0.5, desc='Mach number of Fl_O2')
 
         self.add_output('W2', 0.56, desc='Weight flow for Fl_O1', units='kg/s')
 
@@ -54,7 +47,7 @@ class SplitterW(Group):
         flow_in = FlowIn('Fl_I', self.num_prod)
         self.add('flow_in', flow_in, promotes=flow_in.flow_in_vars)
 
-        self.add('split_calc', SplitterWCalc(), promotes=['MN_out1_target', 'MN_out2_target', 'W1'])
+        self.add('split_calc', SplitterWCalc(), promotes=['W1', 'MN_out1_target', 'MN_out2_target'])
 
         self.connect('MN_out1_target', 'out1_stat.MN_target')
         self.connect('MN_out2_target', 'out2_stat.MN_target')

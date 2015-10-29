@@ -44,8 +44,9 @@ class Mission(Component):
 class SubscaleMission(Component):
     '''Place holder for real mission analysis. Could consider a pseudospectral optimal control approach'''
     def __init__(self):
-        self.add_param('max_velocity', 308.0, desc='Maximum travel speed for pod', units='m/s')
-        self.add_param('tube_len', 563270.0, desc='length of one trip', units='m')
+        self.add_param('launch_v', 90.0, desc='maximum travel speed for pod', units='m/s')
+        self.add_param('launch_time', 5.0, desc='time spent accelerating', units='s')
+        self.add_param('tube_len', 1600.0, desc='length of one trip', units='m')
         self.add_param('pwr_marg', 0.3, desc='fractional extra energy requirement')
         self.add_param('pwr_req', 420.0, desc='average power requirement for a mission', units='kW')
 
