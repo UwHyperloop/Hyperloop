@@ -40,6 +40,9 @@ class TubeFlow(Component):
         self.add_output('Pt', 0.0, desc='total pressure of flow entering compression system', units='Pa')
         self.add_output('Tt', 0.0, desc='total temperature of flow entering compression system', units='degK')
 
+        self.add_param('converted_bypass_area', 0.0, units='m**2')
+        self.add_param('converted_inlet_area', 0.0, units='m**2')
+
     def solve_nonlinear(self, params, unknowns, resids):
         gam = params['gamma']
         MN = params['pod_MN']
@@ -52,38 +55,64 @@ class TubeFlow(Component):
         unknowns['W'] = Ps / R / Ts * params['tube_area'] * MN * sqrt(gam * R * Ts)
 
 
+class BypassFlow(Component):
+    def __init__(self):
+        super(BypassFlow, self).__init__()
+
+        self.add_param('rhot', 0.0, desc='total density of air in bypass', units='kg/m**3')
+        self.add_param('Tt', 99.0, desc='total temperature of air in bypass', units='degK')
+        self.add_param('bypass_MN', 0.9, desc='Mach number of air in bypass')
+        self.add_param('gamma', 1.41, desc='specific heat ratio for air')
+        self.add_param('R', 286.0, desc='specific gas constant for flow', units='m**2/s**2/degK')
+        self.add_param('bypass_area', 0.5, desc='available bypass area', units='m**2')
+        self.add_param('total_W', 0.0, desc='total mass flow through bypass and compression system', units='kg/s')
+        self.add_param('percent_to_bypass', 1.0, desc='proportion of the available flow to force through the bypass')
+
+        self.add_output('bypass_W', 0.0, desc='mass flow through bypass', units='kg/s')
+
+    def solve_nonlinear(self, params, unknowns, resids):
+        gam = params['gamma']
+        MN = params['bypass_MN']
+        multiplier = (1.0 + (gam - 1.0) / 2.0 * MN ** 2)
+        rhos = params['rhot'] * multiplier ** (1.0 / (1.0 - gam))
+        Ts = params['Tt'] / multiplier
+        Vflow = MN * sqrt(gam * params['R'] * Ts)
+        unknowns['bypass_W'] = params['percent_to_bypass'] * min(rhos * Vflow * params['bypass_area'], params['total_W'] - 1e-3)
+
+
 class HyperloopSim(Group):
     def __init__(self):
         super(HyperloopSim, self).__init__()
 
         self.add('pod', Pod(), promotes=['cross_section', 'bypass_area', 'tube_P', 'tube_T', 'tube_r', 'tube_area', 'fill_area'])
-        self.add('tube_flow', TubeFlow(), promotes=['pod_MN', 'tube_T', 'tube_P', 'tube_area'])
+        self.add('tube_flow', TubeFlow(), promotes=['pod_MN', 'tube_T', 'tube_P', 'tube_area', 'converted_bypass_area', 'converted_inlet_area'])
         self.add('start', FlowStart())
-        self.add('W1_param', IndepVarComp('bypass_W', 0.2), promotes=['*'])
-        self.add('split', SplitterW())
+        self.add('bypass_flow', BypassFlow(), promotes=['bypass_W', 'bypass_area', 'bypass_MN', 'percent_to_bypass'])
+        self.add('split', SplitterW(mode='area'))
         self.add('compression_system', CompressionSystem())
 
-        self.add('inlet_MN_param', IndepVarComp('inlet_MN', 0.5), promotes=['*'])
-        self.add('bypass_MN_param', IndepVarComp('bypass_MN', 1.0), promotes=['*']) # choked by default
-        self.add('comp2_mouth_MN_param', IndepVarComp('comp2_mouth_MN', 0.5), promotes=['*'])
-        self.add('internal_bypass_MN_param', IndepVarComp('internal_bypass_MN', 0.5), promotes=['*'])
-        self.add('air_bearing_W_param', IndepVarComp('air_bearing_W', 0.2), promotes=['*'])
         self.add('tube_P_param', IndepVarComp('tube_P', 99.0, units='Pa'), promotes=['*'])
         self.add('pod_MN_param', IndepVarComp('pod_MN', 0.3), promotes=['*'])
+
+        self.add('internal_bypass_MN_param', IndepVarComp('internal_bypass_MN', 0.9), promotes=['*'])
+        self.add('comp2_mouth_MN_param', IndepVarComp('comp2_mouth_MN', 0.5), promotes=['*'])
+        self.add('air_bearing_W_param', IndepVarComp('air_bearing_W', 0.2), promotes=['*'])
         self.add('comp1_exit_MN_param', IndepVarComp('comp1_exit_MN', 0.8), promotes=['*'])
         self.add('comp2_exit_MN_param', IndepVarComp('comp2_exit_MN', 0.8), promotes=['*'])
-
-        self.add('bypass_area_con', ExecComp('c = ((area * 0.00065) - bypass_area) / bypass_area'), promotes=['bypass_area'])
-        self.add('inlet_area_con', ExecComp('c = (((area * 0.00065) - inlet_area) ** 2) ** 0.5 / inlet_area'), promotes=['inlet_area'])
+        self.add('inlet_area_param', IndepVarComp('inlet_area', 0.785, units='m**2'), promotes=['*'])
 
         self.connect('tube_flow.W', 'start.W')
         self.connect('tube_flow.Pt', 'start.P')
         self.connect('tube_flow.Tt', 'start.T')
         self.connect('pod_MN', 'start.MN_target')
 
+        self.connect('start.Fl_O:tot:rho', 'bypass_flow.rhot')
+        self.connect('start.Fl_O:tot:T', 'bypass_flow.Tt')
+        self.connect('start.Fl_O:stat:W', 'bypass_flow.total_W')
+
         self.connect('bypass_W', 'split.W1')
-        self.connect('bypass_MN', 'split.MN_out1_target')
-        self.connect('inlet_MN', 'split.MN_out2_target')
+        self.connect('bypass_area', 'split.area_out1_target')
+        self.connect('inlet_area', 'split.area_out2_target')
         self.connect('comp2_mouth_MN', 'compression_system.split.MN_out1_target')
         self.connect('comp1_exit_MN', 'compression_system.comp1_funnel.MN_out_target')
         self.connect('comp2_exit_MN', 'compression_system.comp2_funnel.MN_out_target')
@@ -94,20 +123,15 @@ class HyperloopSim(Group):
 
         self.connect('split.Fl_O2:stat:MN', 'compression_system.diffuser.MN_out_target') # no diffuser
         
-        self.connect('split.Fl_O1:stat:area', 'bypass_area_con.area')
-        self.connect('split.Fl_O2:stat:area', 'inlet_area_con.area')
-
         CompressionSystem.connect_flow(self, 'start.Fl_O', 'split.Fl_I', connect_FAR=False)
         CompressionSystem.connect_flow(self, 'split.Fl_O2', 'compression_system.inlet.Fl_I', connect_stat=False, connect_FAR=False)
 
     @staticmethod
-    def p_factory(tube_P=99.0, tube_T=292.6, pod_MN=0.2, inlet_area=0.785, cross_section=1.0, tube_r=0.9, fill_area=0.214, bypass_MN=0.9):
+    def p_factory(tube_P=99.0, tube_T=292.6, pod_MN=0.2, inlet_area=0.33, cross_section=0.82, tube_r=0.9, fill_area=0.214, bypass_MN=0.9):
         from openmdao.core.problem import Problem
-        from openmdao.units.units import convert_units as cu
 
         g = HyperloopSim()
-        p = Problem(root=g, driver=ScipyOptimizer())
-        p.driver.options['optimizer'] = 'COBYLA'
+        p = Problem(root=g)
         
         p.setup(check=False)
 
@@ -125,19 +149,13 @@ class HyperloopSim(Group):
         p['compression_system.comp1.PR_design'] = 5.0
         p['compression_system.comp1.eff_design'] = 0.8
         p['comp1_exit_MN'] = 1.0 # keep internal MN greater than or equal to MN of bypass to avoid trailing vacuum
-        p['air_bearing_W'] = 0.2
+        p['air_bearing_W'] = 1e-4 # negligible
         p['internal_bypass_MN'] = 1.0
         p['comp2_mouth_MN'] = 0.8
         p['compression_system.nozzle.dPqP'] = 0.0
-        p['compression_system.comp2.PR_design'] = 4.0
-        p['compression_system.comp2.eff_design'] = 0.8
+        p['compression_system.comp2.PR_design'] = 1.0
+        p['compression_system.comp2.eff_design'] = 1.0
         p['comp2_exit_MN'] = 0.8
-
-        p.driver.add_desvar('bypass_W', low=0.01, high=1000.0)
-        p.driver.add_constraint('bypass_area_con.c', upper=0.01, lower=-0.01)
-        p.driver.add_desvar('inlet_MN', low=0.01, high=1.0)
-        p.driver.add_constraint('inlet_area_con.c', upper=0.01, lower=-0.01)
-        p.driver.add_objective('inlet_area_con.c')
 
         return p
 
@@ -145,7 +163,7 @@ class HyperloopSim(Group):
 if __name__ == "__main__":
     print 'Setting up...'
 
-    p = HyperloopSim.p_factory(pod_MN=0.3, cross_section=1.25)
+    p = HyperloopSim.p_factory(pod_MN=0.5, cross_section=1.25)
     p['compression_system.comp1.PR_design'] = 2.0
     p['compression_system.comp2.PR_design'] = 5.0
 
