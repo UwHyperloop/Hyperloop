@@ -150,7 +150,7 @@ class HyperloopSim(Group):
         p['compression_system.comp1.eff_design'] = 0.8
         p['comp1_exit_MN'] = 1.0 # keep internal MN greater than or equal to MN of bypass to avoid trailing vacuum
         p['air_bearing_W'] = 1e-4 # negligible
-        p['internal_bypass_MN'] = 1.0
+        p['internal_bypass_MN'] = 0.9
         p['comp2_mouth_MN'] = 0.8
         p['compression_system.nozzle.dPqP'] = 0.0
         p['compression_system.comp2.PR_design'] = 1.0
@@ -163,7 +163,7 @@ class HyperloopSim(Group):
 if __name__ == "__main__":
     print 'Setting up...'
 
-    p = HyperloopSim.p_factory(pod_MN=0.5, cross_section=1.25)
+    p = HyperloopSim.p_factory(pod_MN=0.2)
     p['compression_system.comp1.PR_design'] = 2.0
     p['compression_system.comp2.PR_design'] = 5.0
 
