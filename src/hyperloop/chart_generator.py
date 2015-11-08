@@ -8,7 +8,8 @@ from os import devnull
 
 def plot(p, x_array, x_varname, y_varnames, x_label, y_label,
         title='HyperloopSim', postprocess_funcs=tuple()):
-    '''Runs an OpenMDAO problem for multiple values of x and plots the specified
+    '''
+    Runs an OpenMDAO problem for multiple values of x and plots the specified
     results.
     
     Parameters
