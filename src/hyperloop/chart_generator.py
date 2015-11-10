@@ -71,31 +71,39 @@ def plot(p, x_array, x_varname, y_varnames, x_label, y_label,
     pylab.legend(loc='best')
     pylab.show()
 
-if __name__ == "__main__":
-    p = HyperloopSim.p_factory()
-    #p['compression_system.comp1.PR_design'] = 1.0
-    p['comp1_exit_MN'] = 0.9
-    #p['percent_to_bypass'] = 0.01
-    p['pod_MN'] = 0.3
-
+class PostProcess():
+    @staticmethod
     def lbm2kg(val):
         return cu(val, 'lbm', 'kg')
+    @staticmethod
     def degR2degC(val):
         return cu(val, 'degR', 'degC')
+    @staticmethod
     def psi2Pa(val):
         return cu(val, 'psi', 'Pa')
+    @staticmethod
     def ft2m(val):
         return cu(val, 'ft', 'm')
+    @staticmethod
     def ft_s2mph(val):
         return cu(val, 'ft/s', 'mi/h')
+    @staticmethod
     def sq_in2sq_m(val):
         return cu(val, 'inch**2', 'm**2')
+    @staticmethod
     def invert(val):
         return -val
-    plot(p, x_array=np.arange(1.0, 20.0, 0.5),
-        x_varname='compression_system.comp1.PR_design',
-        y_varnames=('compression_system.nozzle.Fg',),
-        x_label='Pressure Ratio at MN=0.3',
-        y_label='Gross thrust (lbf)',
-        title='UW Pod Rev: 1 Nov 2015',
-        postprocess_funcs=(invert,))
+
+if __name__ == "__main__":
+    p = HyperloopSim.p_factory()
+    p['compression_system.comp1.PR_design'] = 1.0
+    p['comp1_exit_MN'] = 0.9
+    #p['percent_to_bypass'] = 0.01
+    #p['pod_MN'] = 0.3
+    plot(p, x_array=np.arange(0.1, 0.6, 0.25),
+        x_varname='pod_MN',
+        y_varnames=('tube_flow.W', 'bypass_W', 'compression_system.inlet.Fl_I:stat:W'),
+        x_label='Travel Mach',
+        y_label='Mass flow (kg/s)',
+        title='OpenMDAO: UW Pod, Rev: 1 Nov 2015',
+        postprocess_funcs=(None, None, PostProcess.lbm2kg))
