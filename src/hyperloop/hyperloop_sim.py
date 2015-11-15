@@ -63,8 +63,8 @@ class BypassFlow(Component):
         self.add_param('bypass_area', 0.5, desc='available bypass area', units='m**2')
         self.add_param('total_W', 0.0, desc='total mass flow through bypass and compression system',
                 units='kg/s')
-        self.add_param('percent_to_bypass', 1.0,
-                desc='proportion of the available flow to force through the bypass')
+        self.add_param('percent_into_bypass', 1.0 - 1e-4,
+                desc='proportion of tube flow to force through the bypass until choked')
 
         self.add_output('bypass_W', 0.0, desc='mass flow through bypass', units='kg/s')
 
@@ -75,8 +75,8 @@ class BypassFlow(Component):
         rhos = params['rhot'] * multiplier ** (1.0 / (1.0 - gam))
         Ts = params['Tt'] / multiplier
         Vflow = MN * sqrt(gam * params['R'] * Ts)
-        pot_W = min(rhos * Vflow * params['bypass_area'], params['total_W'] - 1e-3)
-        unknowns['bypass_W'] = params['percent_to_bypass'] * pot_W
+        unknowns['bypass_W'] = min(rhos * Vflow * params['bypass_area'],
+                params['total_W'] * params['percent_into_bypass'])
 
 
 class HyperloopSim(Group):
@@ -87,7 +87,7 @@ class HyperloopSim(Group):
                 'fill_area')
         tube_fl_promotes = ('pod_MN', 'tube_T', 'tube_P', 'tube_area', 'converted_bypass_area',
                 'converted_inlet_area')
-        bypass_fl_promotes = ('bypass_W', 'bypass_area', 'bypass_MN', 'percent_to_bypass')
+        bypass_fl_promotes = ('bypass_W', 'bypass_area', 'bypass_MN', 'percent_into_bypass')
 
         self.add('pod', Pod(), promotes=pod_promotes)
         self.add('tube_flow', TubeFlow(), promotes=tube_fl_promotes)
@@ -133,6 +133,10 @@ class HyperloopSim(Group):
 
         self.connect('split.Fl_O2:stat:MN', 'compression_system.diffuser.MN_out_target')
                 # no diffuser
+
+        self.add('comp1_cfm_calc', ExecComp('comp1_cfm = W * 60.0 / rho'), promotes=['comp1_cfm'])
+        self.connect('split.Fl_O2:stat:W', 'comp1_cfm_calc.W')
+        self.connect('split.Fl_O2:stat:rho', 'comp1_cfm_calc.rho')
         
         CompressionSystem.connect_flow(self, 'start.Fl_O', 'split.Fl_I',
                 connect_FAR=False)
@@ -189,9 +193,9 @@ class HyperloopSim(Group):
         # compression system
         p['inlet_area'] = inlet_area
         p['cross_section'] = cross_section
-        p['compression_system.comp1.PR_design'] = 5.0
+        p['compression_system.comp1.PR_design'] = 1.5
         p['compression_system.comp1.eff_design'] = 0.8
-        p['comp1_exit_MN'] = 1.0 # keep internal MN greater than or equal to MN of bypass to avoid
+        p['comp1_exit_MN'] = 0.35 # keep internal MN greater than or equal to MN of bypass to avoid
                 # trailing vacuum
         p['air_bearing_W'] = 1e-4 # negligible
         p['internal_bypass_MN'] = 0.9
@@ -208,10 +212,10 @@ if __name__ == "__main__":
     print 'Setting up...'
 
     # Set up OpenMDAO problem `p` with pod traveling at Mach 0.2
-    p = HyperloopSim.p_factory(pod_MN=0.2)
+    p = HyperloopSim.p_factory(pod_MN=0.35, inlet_area=0.4735, cross_section=0.8538)
     # Change some problem parameters
-    p['compression_system.comp1.PR_design'] = 2.0
-    p['compression_system.comp2.PR_design'] = 5.0
+
+    p['percent_into_bypass'] = 1.0 - p['inlet_area'] / p['tube_area']
 
     print 'Setup complete.'
     print ''
@@ -222,6 +226,7 @@ if __name__ == "__main__":
     print 'Comp 1 PR:', ' ' * 29, p['compression_system.comp1.PR_design']
     print 'Comp 2 PR:', ' ' * 29, p['compression_system.comp2.PR_design']
     print ''
+    print 'WARNING: Temp values for compressors are wrong. With temp, proceed with caution.'
     print 'Optimizing...'
 
     # Run problem
@@ -229,6 +234,7 @@ if __name__ == "__main__":
 
     # Display some results
     print ''
+    print 'Velocity:', cu(p['start.Fl_O:stat:V'], 'ft/s', 'm/s'), 'm/s'
     print 'Tube area:', ' ' * 29, p['tube_area'], 'm**2'
     print 'Ambient tube pressure:', ' ' * 17, p['tube_P'], 'Pa'
     print 'Ambient tube temperature:', ' ' * 14, cu(p['tube_T'], 'degK', 'degC'), 'degC'
@@ -239,19 +245,14 @@ if __name__ == "__main__":
     print 'Mass flow through compression system:', ' ' * 2, p['split.split_calc.W2'], 'kg/s'
     print ''
     print 'Comp 1 PR:', ' ' * 23, p['compression_system.comp1.PR_design']
-    print 'Comp 2 PR:', ' ' * 23, p['compression_system.comp2.PR_design']
-    print 'Comp 1 pwr req:', ' ' * 8, -cu(p['compression_system.comp1.power'], 'hp', 'W'), 'W'
-    print 'Comp 2 pwr req:', ' ' * 8, -cu(p['compression_system.comp2.power'], 'hp', 'W'), 'W'
+    print 'Comp 1 pwr req:', ' ' * 24, -cu(p['compression_system.comp1.power'], 'hp', 'W'), 'W'
     print 'Total pressure comp 1 exit:', ' ' * 3, cu(p['compression_system.comp1.Fl_O:tot:P'],
             'psi', 'Pa'), 'Pa'
-    print 'Total pressure comp 2 exit:', ' ' * 3, cu(p['compression_system.comp2.Fl_O:tot:P'],
-            'psi', 'Pa'), 'Pa'
-    print 'Static temperature comp 1 exit:', cu(p['compression_system.comp1_funnel.Fl_O:stat:T'],
-            'degR', 'degC'), 'degC'
-    print ' ' * 40, cu(p['compression_system.comp1_funnel.Fl_O:stat:T'], 'degR', 'degF'), 'degF'
-    print 'Static temperature comp 2 exit:', cu(p['compression_system.comp2_funnel.Fl_O:stat:T'],
-            'degR', 'degC'), 'degC'
-    print ' ' * 40, cu(p['compression_system.comp2_funnel.Fl_O:stat:T'], 'degR', 'degF'), 'degF'
+    print 'Area comp 1 exit:', ' ' * 22, p['compression_system.comp1_funnel.Fl_O:stat:area'], 'in**2'
+    print 'CFM into comp 1:', ' ' * 23, p['comp1_cfm'], 'ft**3/min'
     print ''
-    print 'Area internal bypass:', ' ' * 30, cu(p['compression_system.split.Fl_O2:stat:area'],
+    print 'Area internal bypass:', ' ' * 18, cu(p['compression_system.split.Fl_O2:stat:area'],
             'inch**2', 'm**2'), 'm**2'
+    print ''
+    print 'Real flow h', p['compression_system.comp1.real_flow.h']
+    print 'Real flow P', p['compression_system.comp1.real_flow.P']
